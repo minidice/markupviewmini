@@ -1,0 +1,527 @@
+<Window x:Class="MarkUpViewMini.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:MarkUpViewMini.App"
+        xmlns:web="clr-namespace:MarkUpViewMini.App.Web"
+        xmlns:folders="clr-namespace:MarkUpViewMini.Infrastructure.Folders;assembly=MarkUpViewMini.Infrastructure"
+        xmlns:navigation="clr-namespace:MarkUpViewMini.Core.Navigation;assembly=MarkUpViewMini.Core"
+        xmlns:search="clr-namespace:MarkUpViewMini.Core.Search;assembly=MarkUpViewMini.Core"
+        mc:Ignorable="d"
+        Title="MarkUpViewMini"
+        Height="760"
+        Width="1180"
+        MinHeight="480"
+        MinWidth="720">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibility" />
+        <local:EnumEqualsConverter x:Key="EnumEquals" />
+        <local:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibility" />
+        <local:OutlineIndentConverter x:Key="OutlineIndent" />
+        <HierarchicalDataTemplate DataType="{x:Type folders:FolderNode}" ItemsSource="{Binding Children}">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock VerticalAlignment="Center" Text="{Binding Name}" />
+                <TextBlock Margin="6,0,0,0"
+                           VerticalAlignment="Center"
+                           Foreground="#FFB42318"
+                           Text="{Binding Error}"
+                           ToolTip="{Binding Error}" />
+            </StackPanel>
+        </HierarchicalDataTemplate>
+    </Window.Resources>
+
+    <Window.CommandBindings>
+        <CommandBinding Command="{x:Static NavigationCommands.BrowseBack}"
+                        CanExecute="Back_CanExecute"
+                        Executed="Back_Executed" />
+        <CommandBinding Command="{x:Static NavigationCommands.BrowseForward}"
+                        CanExecute="Forward_CanExecute"
+                        Executed="Forward_Executed" />
+        <CommandBinding Command="{x:Static local:MainWindowCommands.Save}"
+                        CanExecute="Save_CanExecute"
+                        Executed="Save_Executed" />
+        <CommandBinding Command="{x:Static local:MainWindowCommands.SaveAs}"
+                        CanExecute="SaveAs_CanExecute"
+                        Executed="SaveAs_Executed" />
+        <CommandBinding Command="{x:Static local:MainWindowCommands.Undo}"
+                        CanExecute="EditorHistory_CanExecute"
+                        Executed="Undo_Executed" />
+        <CommandBinding Command="{x:Static local:MainWindowCommands.Redo}"
+                        CanExecute="EditorHistory_CanExecute"
+                        Executed="Redo_Executed" />
+        <CommandBinding Command="{x:Static local:MainWindowCommands.ToggleMode}"
+                        CanExecute="ModeToggle_CanExecute"
+                        Executed="ToggleMode_Executed" />
+        <CommandBinding Command="{x:Static local:MainWindowCommands.OpenFind}"
+                        CanExecute="Find_CanExecute"
+                        Executed="OpenFind_Executed" />
+        <CommandBinding Command="{x:Static local:MainWindowCommands.FindNext}"
+                        CanExecute="Find_CanExecute"
+                        Executed="FindNext_Executed" />
+        <CommandBinding Command="{x:Static local:MainWindowCommands.FindPrevious}"
+                        CanExecute="Find_CanExecute"
+                        Executed="FindPrevious_Executed" />
+        <CommandBinding Command="{x:Static local:MainWindowCommands.CloseFind}"
+                        CanExecute="Find_CanExecute"
+                        Executed="CloseFind_Executed" />
+    </Window.CommandBindings>
+
+    <Window.InputBindings>
+        <KeyBinding Key="S" Modifiers="Control" Command="{x:Static local:MainWindowCommands.Save}" />
+        <KeyBinding Key="S" Modifiers="Control+Shift" Command="{x:Static local:MainWindowCommands.SaveAs}" />
+        <KeyBinding Key="Z" Modifiers="Control" Command="{x:Static local:MainWindowCommands.Undo}" />
+        <KeyBinding Key="Y" Modifiers="Control" Command="{x:Static local:MainWindowCommands.Redo}" />
+        <KeyBinding Key="F" Modifiers="Control" Command="{x:Static local:MainWindowCommands.OpenFind}" />
+        <KeyBinding Key="F3" Command="{x:Static local:MainWindowCommands.FindNext}" />
+        <KeyBinding Key="F3" Modifiers="Shift" Command="{x:Static local:MainWindowCommands.FindPrevious}" />
+        <KeyBinding Key="Escape" Command="{x:Static local:MainWindowCommands.CloseFind}" />
+    </Window.InputBindings>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Menu Grid.Row="0">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Open..." InputGestureText="Ctrl+O" Click="Open_Click" />
+                <Separator />
+                <MenuItem Header="_Save" InputGestureText="Ctrl+S" Command="{x:Static local:MainWindowCommands.Save}" />
+                <MenuItem Header="Save _As..." InputGestureText="Ctrl+Shift+S" Command="{x:Static local:MainWindowCommands.SaveAs}" />
+                <MenuItem x:Name="RecentDocumentsMenu"
+                          Header="_Recent Documents"
+                          ItemsSource="{Binding RecentDocuments}">
+                    <MenuItem.ItemContainerStyle>
+                        <Style TargetType="MenuItem">
+                            <Setter Property="Header" Value="{Binding Path}" />
+                            <EventSetter Event="Click" Handler="RecentDocument_Click" />
+                        </Style>
+                    </MenuItem.ItemContainerStyle>
+                </MenuItem>
+                <MenuItem Header="_New Window" Click="NewWindow_Click" />
+                <Separator />
+                <MenuItem Header="E_xit" Click="Exit_Click" />
+            </MenuItem>
+            <MenuItem Header="_Edit">
+                <MenuItem Header="_Undo" InputGestureText="Ctrl+Z" Command="{x:Static local:MainWindowCommands.Undo}" />
+                <MenuItem Header="_Redo" InputGestureText="Ctrl+Y" Command="{x:Static local:MainWindowCommands.Redo}" />
+                <Separator />
+                <MenuItem Header="읽기/편집 모드 전환" Command="{x:Static local:MainWindowCommands.ToggleMode}" />
+            </MenuItem>
+            <MenuItem x:Name="WindowsIntegrationMenu"
+                      Header="_설정">
+                <MenuItem x:Name="RegistrationStatusItem"
+                          Header="{Binding StatusText}"
+                          IsEnabled="False" />
+                <MenuItem x:Name="RegistrationGuidanceItem"
+                          Header="{Binding GuidanceText}"
+                          IsEnabled="False" />
+                <Separator />
+                <MenuItem x:Name="RegisterFileTypesItem"
+                          Header="파일 형식 등록"
+                          Command="{Binding RegisterCommand}" />
+                <MenuItem x:Name="UnregisterFileTypesItem"
+                          Header="등록 해제"
+                          Command="{Binding UnregisterCommand}" />
+                <MenuItem x:Name="OpenDefaultAppsSettingsItem"
+                          Header="Windows 기본 앱 설정 열기"
+                          Command="{Binding OpenDefaultAppsSettingsCommand}" />
+                <Separator />
+                <MenuItem x:Name="ShortcutStatusItem"
+                          Header="{Binding ShortcutStatusText}"
+                          IsEnabled="False" />
+                <MenuItem x:Name="CreateStartMenuShortcutItem"
+                          Header="시작 메뉴 바로 가기 만들기"
+                          Command="{Binding CreateStartMenuShortcutCommand}" />
+                <MenuItem x:Name="CreateDesktopShortcutItem"
+                          Header="바탕 화면 바로 가기 만들기"
+                          Command="{Binding CreateDesktopShortcutCommand}" />
+                <MenuItem x:Name="RemoveShortcutsItem"
+                          Header="MarkUpViewMini 바로 가기 제거"
+                          Command="{Binding RemoveShortcutsCommand}" />
+                <Separator />
+                <MenuItem x:Name="WindowsIntegrationErrorItem"
+                          Header="{Binding ErrorMessage}"
+                          IsEnabled="False"
+                          AutomationProperties.LiveSetting="Polite"
+                          Visibility="{Binding HasError, Converter={StaticResource BooleanToVisibility}}" />
+            </MenuItem>
+            <MenuItem x:Name="InformationMenu" Header="정보">
+                <MenuItem x:Name="VersionInformationItem"
+                          Header="버전 정보"
+                          Click="VersionInformation_Click" />
+                <MenuItem x:Name="ThirdPartyLicensesItem"
+                          Header="타사 라이선스"
+                          Click="ThirdPartyLicenses_Click" />
+                <MenuItem x:Name="ApplicationLicenseItem"
+                          Header="앱 라이선스"
+                          Click="ApplicationLicense_Click" />
+            </MenuItem>
+        </Menu>
+
+        <Border Grid.Row="1" Background="#FFF4F4F4" BorderBrush="#FFD7D7D7" BorderThickness="0,0,0,1">
+            <DockPanel Margin="8,5">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                    <Button x:Name="BackButton"
+                            Width="34"
+                            Padding="6,5"
+                            Command="{x:Static NavigationCommands.BrowseBack}"
+                            Content="←"
+                            AutomationProperties.Name="뒤로"
+                            ToolTip="뒤로" />
+                    <Button x:Name="ForwardButton"
+                            Width="34"
+                            Margin="4,0,0,0"
+                            Padding="6,5"
+                            Command="{x:Static NavigationCommands.BrowseForward}"
+                            Content="→"
+                            AutomationProperties.Name="앞으로"
+                            ToolTip="앞으로" />
+                    <Button Margin="8,0,0,0" Padding="14,5" Content="Open" Click="Open_Click" />
+                </StackPanel>
+                <TextBlock x:Name="StatusText"
+                           Margin="12,0,0,0"
+                           VerticalAlignment="Center"
+                           Foreground="#FF666666"
+                           Text="{Binding ActiveTab.Path, TargetNullValue=Local Markdown reader}" />
+            </DockPanel>
+        </Border>
+
+        <ListBox x:Name="TabsList"
+                 Grid.Row="2"
+                 ItemsSource="{Binding Tabs}"
+                 SelectedItem="{Binding ActiveTab, Mode=TwoWay}"
+                 SelectionChanged="TabsList_SelectionChanged"
+                 BorderThickness="0,0,0,1"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                 AutomationProperties.Name="문서 탭">
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <DockPanel MinWidth="120" Margin="5,2">
+                        <Button DockPanel.Dock="Right"
+                                Margin="8,0,0,0"
+                                Padding="4,0"
+                                Tag="{Binding}"
+                                ToolTip="Close tab"
+                                Click="CloseTab_Click"
+                                Content="×"
+                                AutomationProperties.Name="문서 탭 닫기" />
+                        <TextBlock VerticalAlignment="Center"
+                                   Text="{Binding DisplayTitle}"
+                                   AutomationProperties.Name="{Binding DisplayTitle}" />
+                    </DockPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="SidebarColumn" Width="280" MinWidth="170" />
+                <ColumnDefinition Width="5" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <TabControl x:Name="SidebarTabs" Grid.Column="0" SelectedIndex="0" BorderThickness="0,0,1,0">
+                <TabItem Header="파일">
+                    <Grid Margin="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <ToggleButton x:Name="SearchToggle"
+                                      HorizontalAlignment="Right"
+                                      Padding="10,4"
+                                      Content="검색" />
+
+                        <Grid Grid.Row="1"
+                              Margin="0,7,0,0"
+                              Visibility="{Binding IsChecked, ElementName=SearchToggle, Converter={StaticResource InverseBooleanToVisibility}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <TextBlock x:Name="RootTreeErrorText"
+                                       Margin="0,0,0,6"
+                                       Padding="7"
+                                       Background="#FFFFE8E6"
+                                       Foreground="#FFB42318"
+                                       Text="{Binding Sidebar.RootError}"
+                                       TextWrapping="Wrap"
+                                       ToolTip="{Binding Sidebar.RootError}"
+                                       Visibility="{Binding Sidebar.HasRootError, Converter={StaticResource BooleanToVisibility}}" />
+                            <TreeView x:Name="FolderTree"
+                                      Grid.Row="1"
+                                      ItemsSource="{Binding Sidebar.Tree.Children}"
+                                      IsEnabled="{Binding Sidebar.CanActivateTree}"
+                                      PreviewMouseLeftButtonUp="FolderTree_PreviewMouseLeftButtonUp"
+                                      PreviewKeyDown="FolderTree_PreviewKeyDown" />
+                        </Grid>
+
+                        <Grid Grid.Row="1"
+                              Margin="0,7,0,0"
+                              Visibility="{Binding IsChecked, ElementName=SearchToggle, Converter={StaticResource BooleanToVisibility}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right"
+                                        Margin="5,0,0,0"
+                                        Padding="9,3"
+                                        Click="Search_Click"
+                                        IsEnabled="{Binding Sidebar.CanSearch}"
+                                        Content="찾기" />
+                                <TextBox x:Name="SearchBox"
+                                         MinWidth="100"
+                                         KeyDown="SearchBox_KeyDown"
+                                         Text="{Binding Sidebar.SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                            </DockPanel>
+                            <StackPanel Grid.Row="1" Margin="0,6" Orientation="Horizontal">
+                                <RadioButton x:Name="FileNameSearchRadio"
+                                             GroupName="SearchMode"
+                                             Content="파일명"
+                                             IsChecked="{Binding Sidebar.SearchMode, Mode=TwoWay, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static search:SearchMode.FileName}}" />
+                                <RadioButton x:Name="BodySearchRadio"
+                                             Margin="14,0,0,0"
+                                             GroupName="SearchMode"
+                                             Content="본문"
+                                             IsChecked="{Binding Sidebar.SearchMode, Mode=TwoWay, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static search:SearchMode.Body}}" />
+                                <Button Margin="14,0,0,0"
+                                        Padding="7,1"
+                                        Click="CancelSearch_Click"
+                                        Content="취소"
+                                        IsEnabled="{Binding Sidebar.IsSearching}" />
+                            </StackPanel>
+                            <WrapPanel Grid.Row="2" Margin="0,0,0,6">
+                                <CheckBox Margin="0,0,10,0"
+                                          Content="대소문자"
+                                          IsChecked="{Binding Sidebar.MatchCase, Mode=TwoWay}" />
+                                <CheckBox Margin="0,0,10,0"
+                                          Content="단어 단위"
+                                          IsChecked="{Binding Sidebar.WholeWord, Mode=TwoWay}" />
+                                <CheckBox Content="정규식"
+                                          IsChecked="{Binding Sidebar.UseRegex, Mode=TwoWay}" />
+                            </WrapPanel>
+                            <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding Sidebar.SearchGroups}"
+                                              IsEnabled="{Binding Sidebar.CanActivateSearchResults}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Expander Margin="0,2" Header="{Binding RelativePath}" IsExpanded="True">
+                                                <ItemsControl ItemsSource="{Binding Matches}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Button Margin="10,1,0,1"
+                                                                    Padding="5,3"
+                                                                    HorizontalContentAlignment="Left"
+                                                                    Tag="{Binding}"
+                                                                    Click="SearchResult_Click">
+                                                                <StackPanel>
+                                                                    <TextBlock Foreground="#FF666666" Text="{Binding LineNumber, StringFormat=줄 {0}}" />
+                                                                    <TextBlock Text="{Binding Preview}" TextWrapping="Wrap" />
+                                                                </StackPanel>
+                                                            </Button>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </Expander>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <StackPanel Grid.Row="4" Margin="0,6,0,0">
+                                <TextBlock Foreground="#FF666666"
+                                           Text="검색 중…"
+                                           Visibility="{Binding Sidebar.IsSearching, Converter={StaticResource BooleanToVisibility}}" />
+                                <TextBlock Foreground="#FFB42318"
+                                           Text="{Binding Sidebar.SearchError}"
+                                           TextWrapping="Wrap"
+                                           Visibility="{Binding Sidebar.HasSearchError, Converter={StaticResource BooleanToVisibility}}" />
+                                <TextBlock Foreground="#FF666666"
+                                           Text="{Binding Sidebar.SearchStatusText}"
+                                           TextWrapping="Wrap"
+                                           Visibility="{Binding Sidebar.HasSearchStatus, Converter={StaticResource BooleanToVisibility}}" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock x:Name="RootRefreshingText"
+                                   Grid.Row="1"
+                                   Panel.ZIndex="2"
+                                   Margin="0,7,0,0"
+                                   Padding="8"
+                                   HorizontalAlignment="Stretch"
+                                   VerticalAlignment="Top"
+                                   Background="#FFF4F4F4"
+                                   Foreground="#FF666666"
+                                   IsHitTestVisible="False"
+                                   Text="탐색 루트 새로 고치는 중…"
+                                   Visibility="{Binding Sidebar.IsRefreshingTree, Converter={StaticResource BooleanToVisibility}}" />
+                    </Grid>
+                </TabItem>
+                <TabItem Header="개요">
+                    <ListBox x:Name="OutlineList"
+                             Margin="8"
+                             ItemsSource="{Binding Sidebar.Outline}"
+                             PreviewMouseLeftButtonUp="OutlineList_PreviewMouseLeftButtonUp"
+                             PreviewKeyDown="OutlineList_PreviewKeyDown">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Margin="{Binding Level, Converter={StaticResource OutlineIndent}}"
+                                           Padding="3"
+                                           Text="{Binding Text}"
+                                           TextWrapping="Wrap" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </TabItem>
+            </TabControl>
+            <GridSplitter Grid.Column="1"
+                          HorizontalAlignment="Stretch"
+                          Background="#FFE5E5E5"
+                          DragCompleted="SidebarSplitter_DragCompleted" />
+            <web:WebDocumentSurface x:Name="DocumentSurface" Grid.Column="2" />
+        </Grid>
+
+        <StackPanel Grid.Row="4">
+            <Border x:Name="EditingStatusRegion"
+                    Padding="10,7"
+                    Background="#FFFFE8E6"
+                    BorderBrush="#FFD13438"
+                    BorderThickness="0,1,0,0"
+                    AutomationProperties.Name="편집 및 저장 상태"
+                    AutomationProperties.LiveSetting="Assertive"
+                    Visibility="{Binding HasEditingError, Converter={StaticResource BooleanToVisibility}}">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button Margin="8,0,0,0"
+                                Padding="9,3"
+                                Command="{x:Static local:MainWindowCommands.SaveAs}"
+                                Content="다른 이름으로 저장"
+                                AutomationProperties.Name="다른 이름으로 저장" />
+                        <Button Margin="8,0,0,0"
+                                Padding="9,3"
+                                Click="DismissEditingError_Click"
+                                Content="닫기"
+                                AutomationProperties.Name="편집 및 저장 오류 닫기" />
+                    </StackPanel>
+                    <TextBlock VerticalAlignment="Center"
+                               Text="{Binding EditingErrorMessage}"
+                               TextWrapping="Wrap" />
+                </DockPanel>
+            </Border>
+            <Border x:Name="ConflictStatusRegion"
+                    Padding="10,7"
+                    Background="#FFFFF4CE"
+                    BorderBrush="#FFE3B341"
+                    BorderThickness="0,1,0,0"
+                    AutomationProperties.Name="외부 파일 변경"
+                    AutomationProperties.LiveSetting="Polite"
+                    Visibility="{Binding ConflictBar.IsVisible, Converter={StaticResource BooleanToVisibility}}">
+                <DockPanel LastChildFill="True">
+                    <StackPanel DockPanel.Dock="Right"
+                                Orientation="Horizontal"
+                                Visibility="{Binding ConflictBar.HasDecisions, Converter={StaticResource BooleanToVisibility}}">
+                        <Button Margin="6,0,0,0"
+                                Padding="10,4"
+                                Click="ReloadExternal_Click"
+                                Content="외부 버전 다시 불러오기" />
+                        <Button Margin="6,0,0,0"
+                                Padding="10,4"
+                                Click="KeepMine_Click"
+                                Content="내 버전 유지" />
+                        <Button Margin="6,0,0,0"
+                                Padding="10,4"
+                                Click="CompareExternal_Click"
+                                Content="비교" />
+                    </StackPanel>
+                    <TextBlock VerticalAlignment="Center"
+                               Text="{Binding ConflictBar.Message}"
+                               TextWrapping="Wrap" />
+                </DockPanel>
+            </Border>
+            <Border Padding="10,7"
+                    Background="#FFFFF4CE"
+                    BorderBrush="#FFE3B341"
+                    BorderThickness="0,1,0,0"
+                    AutomationProperties.Name="문서 열기 오류"
+                    AutomationProperties.LiveSetting="Assertive"
+                    Visibility="{Binding HasActiveError, Converter={StaticResource BooleanToVisibility}}">
+                <DockPanel LastChildFill="True">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button Margin="6,0,0,0"
+                                Padding="10,4"
+                                Visibility="{Binding CanRetryActiveError, Converter={StaticResource BooleanToVisibility}}"
+                                Click="Retry_Click"
+                                Content="Retry" />
+                        <ComboBox Width="190"
+                                  Margin="6,0,0,0"
+                                  ItemsSource="{Binding EncodingSelection.Options}"
+                                  SelectedItem="{Binding EncodingSelection.Selected}"
+                                  DisplayMemberPath="DisplayName"
+                                  Visibility="{Binding CanChooseEncodingForActiveError, Converter={StaticResource BooleanToVisibility}}" />
+                        <Button Margin="6,0,0,0"
+                                Padding="10,4"
+                                Visibility="{Binding CanChooseEncodingForActiveError, Converter={StaticResource BooleanToVisibility}}"
+                                Click="RetryWithEncoding_Click"
+                                Content="Choose Encoding" />
+                        <Button Margin="6,0,0,0"
+                                Padding="10,4"
+                                Visibility="{Binding CanCloseActiveError, Converter={StaticResource BooleanToVisibility}}"
+                                Click="CloseErrorTab_Click"
+                                Content="Close" />
+                    </StackPanel>
+                    <TextBlock VerticalAlignment="Center" Text="{Binding ActiveErrorMessage}" TextWrapping="Wrap" />
+                </DockPanel>
+            </Border>
+            <Border Padding="10,7"
+                    Background="#FFFFE8E6"
+                    BorderBrush="#FFD13438"
+                    BorderThickness="0,1,0,0"
+                    AutomationProperties.Name="탐색 오류"
+                    AutomationProperties.LiveSetting="Polite"
+                    Visibility="{Binding HasNavigationError, Converter={StaticResource BooleanToVisibility}}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Margin="8,0,0,0" Padding="9,3" Click="DismissNavigationError_Click" Content="닫기" />
+                    <TextBlock VerticalAlignment="Center" Text="{Binding NavigationErrorMessage}" TextWrapping="Wrap" />
+                </DockPanel>
+            </Border>
+        </StackPanel>
+
+        <Border Grid.Row="5" Padding="10,6" Background="#FFF7F7F7" BorderBrush="#FFD7D7D7" BorderThickness="0,1,0,0">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button x:Name="ModeToggleButton"
+                            Padding="12,4"
+                            Command="{x:Static local:MainWindowCommands.ToggleMode}"
+                            Content="읽기/편집 전환"
+                            AutomationProperties.Name="읽기/편집 모드 전환" />
+                </StackPanel>
+                <RadioButton x:Name="KeepRootRadio"
+                             Margin="0,0,18,0"
+                             VerticalAlignment="Center"
+                             GroupName="RootMode"
+                             Content="탐색 루트 유지"
+                             IsChecked="{Binding Sidebar.RootMode, Mode=TwoWay, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static navigation:RootFollowMode.KeepRoot}}" />
+                <RadioButton x:Name="FollowRootRadio"
+                             VerticalAlignment="Center"
+                             GroupName="RootMode"
+                             Content="현재 문서 폴더로 이동"
+                             IsChecked="{Binding Sidebar.RootMode, Mode=TwoWay, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static navigation:RootFollowMode.FollowCurrentDocument}}" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

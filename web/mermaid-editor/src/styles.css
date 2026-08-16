@@ -1,0 +1,14 @@
+:root { color-scheme: light; font-family: system-ui, sans-serif; }
+body { margin: 0; background: #f7f7f8; color: #1f2937; }
+.mermaid-app { display: grid; grid-template-rows: 1fr auto; min-height: 100vh; }
+.editor-grid { display: grid; grid-template-columns: minmax(18rem, 1fr) minmax(18rem, 1fr); gap: 1rem; padding: 1rem; }
+textarea, .canvas { box-sizing: border-box; width: 100%; min-height: 70vh; border: 1px solid #d1d5db; border-radius: .35rem; background: white; padding: .75rem; }
+.canvas svg { max-width: 100%; height: auto; }
+.canvas-controls, .direction-controls { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .5rem; }
+.direction-controls [aria-pressed="true"], [data-inspector] [aria-pressed="true"] { outline: 2px solid #1565c0; }
+[data-inspector] { margin-top: .75rem; }
+[data-inspector] label { display: grid; gap: .25rem; }
+[data-inspector] fieldset { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
+.status { color: #a61b1b; min-height: 1.5rem; }
+.actions { display: flex; justify-content: flex-end; gap: .5rem; padding: 1rem; border-top: 1px solid #d1d5db; background: white; }
+@media (max-width: 700px) { .editor-grid { grid-template-columns: 1fr; } textarea, .canvas { min-height: 35vh; } }

@@ -1,0 +1,168 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\MarkUpViewMini.Core\MarkUpViewMini.Core.csproj" />
+    <ProjectReference Include="..\MarkUpViewMini.Infrastructure\MarkUpViewMini.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <DocumentSurfaceDirectory>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\web\document-surface'))</DocumentSurfaceDirectory>
+    <MermaidEditorDirectory>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\web\mermaid-editor'))</MermaidEditorDirectory>
+    <DistributionKind Condition="'$(DistributionKind)' == ''">Installed</DistributionKind>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="About\Resources\runtime-notices.json" />
+    <EmbeddedResource Include="About\Resources\app-license.txt" />
+    <Content Include="..\..\LICENSE">
+      <Link>LICENSE</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="portable.marker" Condition="'$(DistributionKind)' == 'Portable'">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="..\..\web\document-surface\index.html">
+      <Link>web\document-surface\index.html</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <Visible>false</Visible>
+    </Content>
+    <Content Include="..\..\web\mermaid-editor\index.html">
+      <Link>web\mermaid-editor\index.html</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <Visible>false</Visible>
+    </Content>
+    <DocumentSurfaceBuildInput Include="$(DocumentSurfaceDirectory)\package.json" />
+    <DocumentSurfaceBuildInput Include="$(DocumentSurfaceDirectory)\package-lock.json" />
+    <DocumentSurfaceBuildInput Include="$(DocumentSurfaceDirectory)\build.mjs" />
+    <DocumentSurfaceBuildInput Include="$(DocumentSurfaceDirectory)\build-support.mjs" />
+    <DocumentSurfaceBuildInput Include="$(DocumentSurfaceDirectory)\verify-dist.mjs" />
+    <DocumentSurfaceBuildInput Include="$(DocumentSurfaceDirectory)\src\**\*.*" />
+    <MermaidEditorBuildInput Include="$(MermaidEditorDirectory)\package.json" />
+    <MermaidEditorBuildInput Include="$(MermaidEditorDirectory)\package-lock.json" />
+    <MermaidEditorBuildInput Include="$(MermaidEditorDirectory)\build.mjs" />
+    <MermaidEditorBuildInput Include="$(MermaidEditorDirectory)\..\document-surface\build-support.mjs" />
+    <MermaidEditorBuildInput Include="$(MermaidEditorDirectory)\src\**\*.*" />
+    <MermaidEditorBuildInput Include="$(MermaidEditorDirectory)\..\shared\mermaid-safe\package.json" />
+    <MermaidEditorBuildInput Include="$(MermaidEditorDirectory)\..\shared\mermaid-safe\*.js" />
+  </ItemGroup>
+
+  <Target Name="RemovePortableMarkerFromNonPortableOutput"
+          AfterTargets="CopyFilesToOutputDirectory;Publish"
+          Condition="'$(DistributionKind)' != 'Portable'">
+    <Delete Files="$(TargetDir)portable.marker;$(PublishDir)portable.marker" />
+  </Target>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <Target Name="LoadDocumentSurfaceManifest"
+          Condition="Exists('$(DocumentSurfaceDirectory)\dist\manifest.txt')">
+    <ReadLinesFromFile File="$(DocumentSurfaceDirectory)\dist\manifest.txt">
+      <Output TaskParameter="Lines" ItemName="_DocumentSurfaceManifestAsset" />
+    </ReadLinesFromFile>
+    <ItemGroup>
+      <_DocumentSurfaceExpectedOutput Include="@(_DocumentSurfaceManifestAsset->'$(DocumentSurfaceDirectory)\dist\%(Identity)')" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="BuildDocumentSurface"
+          Condition="'$(DesignTimeBuild)' != 'true'"
+          DependsOnTargets="LoadDocumentSurfaceManifest"
+          Inputs="@(DocumentSurfaceBuildInput)"
+          Outputs="$(DocumentSurfaceDirectory)\dist\manifest.txt;@(_DocumentSurfaceExpectedOutput)">
+    <Exec Command="npm ci --ignore-scripts --no-audit --no-fund"
+          WorkingDirectory="$(DocumentSurfaceDirectory)" />
+    <Exec Command="npm run build"
+          WorkingDirectory="$(DocumentSurfaceDirectory)" />
+  </Target>
+
+  <Target Name="CopyDocumentSurfaceAssets"
+          AfterTargets="CopyFilesToOutputDirectory"
+          DependsOnTargets="BuildDocumentSurface"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <_DocumentSurfaceAsset Include="$(DocumentSurfaceDirectory)\dist\**\*.*" />
+      <_DocumentSurfaceOutputAsset Include="@(_DocumentSurfaceAsset->'$(TargetDir)web\document-surface\dist\%(RecursiveDir)%(Filename)%(Extension)')" />
+      <FileWrites Include="@(_DocumentSurfaceOutputAsset)" />
+    </ItemGroup>
+    <RemoveDir Directories="$(TargetDir)web\document-surface\dist" />
+    <Copy SourceFiles="@(_DocumentSurfaceAsset)"
+          DestinationFiles="@(_DocumentSurfaceOutputAsset)"
+          SkipUnchangedFiles="true" />
+    <Exec Command="node verify-dist.mjs copy &quot;$(DocumentSurfaceDirectory)\dist&quot; &quot;$(TargetDir)web\document-surface\dist&quot; &quot;$(DocumentSurfaceDirectory)\dist\manifest.txt&quot;"
+          WorkingDirectory="$(DocumentSurfaceDirectory)" />
+  </Target>
+
+  <Target Name="CopyDocumentSurfacePublishAssets"
+          AfterTargets="Publish"
+          DependsOnTargets="BuildDocumentSurface"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <_DocumentSurfacePublishAsset Include="$(DocumentSurfaceDirectory)\dist\**\*.*" />
+      <_DocumentSurfacePublishOutput Include="@(_DocumentSurfacePublishAsset->'$(PublishDir)web\document-surface\dist\%(RecursiveDir)%(Filename)%(Extension)')" />
+    </ItemGroup>
+    <RemoveDir Directories="$(PublishDir)web\document-surface\dist" />
+    <Copy SourceFiles="@(_DocumentSurfacePublishAsset)"
+          DestinationFiles="@(_DocumentSurfacePublishOutput)"
+          SkipUnchangedFiles="true" />
+    <Exec Command="node verify-dist.mjs copy &quot;$(DocumentSurfaceDirectory)\dist&quot; &quot;$(PublishDir)web\document-surface\dist&quot; &quot;$(DocumentSurfaceDirectory)\dist\manifest.txt&quot;"
+          WorkingDirectory="$(DocumentSurfaceDirectory)" />
+  </Target>
+
+  <Target Name="BuildMermaidEditor"
+          Condition="'$(DesignTimeBuild)' != 'true'"
+          Inputs="@(MermaidEditorBuildInput)"
+          Outputs="$(MermaidEditorDirectory)\dist\editor.js;$(MermaidEditorDirectory)\dist\editor.css;$(MermaidEditorDirectory)\dist\runtime-components.json">
+    <Exec Command="npm ci --ignore-scripts --no-audit --no-fund"
+          WorkingDirectory="$(MermaidEditorDirectory)" />
+    <Exec Command="npm run build"
+          WorkingDirectory="$(MermaidEditorDirectory)" />
+  </Target>
+
+  <Target Name="CopyMermaidEditorAssets"
+          AfterTargets="CopyFilesToOutputDirectory"
+          DependsOnTargets="BuildMermaidEditor"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <_MermaidEditorAsset Include="$(MermaidEditorDirectory)\dist\**\*.*" />
+      <_MermaidEditorOutputAsset Include="@(_MermaidEditorAsset->'$(TargetDir)web\mermaid-editor\dist\%(RecursiveDir)%(Filename)%(Extension)')" />
+      <FileWrites Include="@(_MermaidEditorOutputAsset)" />
+    </ItemGroup>
+    <RemoveDir Directories="$(TargetDir)web\mermaid-editor\dist" />
+    <Copy SourceFiles="@(_MermaidEditorAsset)"
+          DestinationFiles="@(_MermaidEditorOutputAsset)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CopyMermaidEditorPublishAssets"
+          AfterTargets="Publish"
+          DependsOnTargets="BuildMermaidEditor"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <_MermaidEditorPublishAsset Include="$(MermaidEditorDirectory)\dist\**\*.*" />
+      <_MermaidEditorPublishOutput Include="@(_MermaidEditorPublishAsset->'$(PublishDir)web\mermaid-editor\dist\%(RecursiveDir)%(Filename)%(Extension)')" />
+    </ItemGroup>
+    <RemoveDir Directories="$(PublishDir)web\mermaid-editor\dist" />
+    <Copy SourceFiles="@(_MermaidEditorPublishAsset)"
+          DestinationFiles="@(_MermaidEditorPublishOutput)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

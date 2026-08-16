@@ -1,0 +1,35 @@
+<UserControl x:Class="MarkUpViewMini.App.Web.WebDocumentSurface"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf">
+    <Grid Background="White">
+        <Grid x:Name="BrowserHost" />
+        <Border x:Name="SurfaceError"
+                Background="#FFFDF3D7"
+                BorderBrush="#FFE3B341"
+                BorderThickness="0,0,0,1"
+                Padding="12"
+                VerticalAlignment="Top"
+                AutomationProperties.Name="문서 화면 오류"
+                AutomationProperties.LiveSetting="Assertive"
+                Visibility="Collapsed">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Right"
+                            Margin="12,0,0,0"
+                            Orientation="Horizontal">
+                    <Button Padding="12,4"
+                            Click="CopyDiagnostics_Click"
+                            Content="Copy diagnostics"
+                            AutomationProperties.Name="안전한 진단 정보 복사" />
+                    <Button Margin="6,0,0,0"
+                            Padding="12,4"
+                            Click="RetryInitialization_Click"
+                            Content="Retry surface"
+                            AutomationProperties.Name="문서 화면 다시 시도" />
+                </StackPanel>
+                <TextBlock VerticalAlignment="Center"
+                           Text="The local document surface could not be started." />
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

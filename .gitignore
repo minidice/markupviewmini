@@ -1,0 +1,16 @@
+.vs/
+.idea/
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+artifacts/
+publish/
+data/
+.superpowers/
+.worktrees/
+docs/
+*.user
+*.suo
+*.log
+PROJECT_PROGRESS.*

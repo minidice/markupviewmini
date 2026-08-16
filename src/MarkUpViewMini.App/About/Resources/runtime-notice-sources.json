@@ -1,0 +1,56 @@
+[
+  {
+    "name": ".NET Runtime (win-x64)",
+    "version": "10.0.11",
+    "licenseIdentifier": "MIT and third-party notices",
+    "sourceUrl": "https://github.com/dotnet/runtime",
+    "packageId": "microsoft.netcore.app.runtime.win-x64",
+    "licenseFiles": [
+      "LICENSE.TXT",
+      "THIRD-PARTY-NOTICES.TXT"
+    ],
+    "publishedLibraryPrefix": "runtimepack.Microsoft.NETCore.App.Runtime.win-x64/"
+  },
+  {
+    "name": ".NET Windows Desktop Runtime (win-x64)",
+    "version": "10.0.11",
+    "licenseIdentifier": "MIT",
+    "sourceUrl": "https://github.com/dotnet/wpf",
+    "packageId": "microsoft.windowsdesktop.app.runtime.win-x64",
+    "licenseFiles": [
+      "LICENSE"
+    ],
+    "publishedLibraryPrefix": "runtimepack.Microsoft.WindowsDesktop.App.Runtime.win-x64/"
+  },
+  {
+    "name": "Microsoft.Web.WebView2",
+    "version": "1.0.2903.40",
+    "licenseIdentifier": "BSD-3-Clause and third-party notices",
+    "sourceUrl": "https://developer.microsoft.com/microsoft-edge/webview2/",
+    "packageId": "microsoft.web.webview2",
+    "licenseFiles": [
+      "LICENSE.txt",
+      "NOTICE.txt"
+    ],
+    "publishedLibraryPrefix": "Microsoft.Web.WebView2/"
+  },
+  {
+    "name": "System.Text.Encoding.CodePages",
+    "version": "10.0.0",
+    "licenseIdentifier": "MIT and third-party notices",
+    "sourceUrl": "https://github.com/dotnet/runtime",
+    "packageId": "system.text.encoding.codepages",
+    "licenseSources": [
+      {
+        "packageId": "microsoft.netcore.app.runtime.win-x64",
+        "version": "10.0.11",
+        "path": "LICENSE.TXT"
+      },
+      {
+        "packageId": "system.text.encoding.codepages",
+        "version": "10.0.0",
+        "path": "THIRD-PARTY-NOTICES.TXT"
+      }
+    ]
+  }
+]

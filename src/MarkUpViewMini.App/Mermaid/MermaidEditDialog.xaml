@@ -1,0 +1,73 @@
+<Window x:Class="MarkUpViewMini.App.Mermaid.MermaidEditDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="Mermaid 블록 편집"
+        Width="1000"
+        Height="720"
+        MinWidth="720"
+        MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing">
+    <Grid Background="White">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <wv2:WebView2 x:Name="Browser" />
+        <Border x:Name="ConflictPanel"
+                Grid.Row="1"
+                Padding="12"
+                Background="#FFFFF4CE"
+                BorderBrush="#FFE3B341"
+                BorderThickness="0,1,0,0"
+                Visibility="Collapsed"
+                AutomationProperties.Name="Mermaid 편집 충돌">
+            <StackPanel>
+                <DockPanel LastChildFill="True">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button Padding="12,4"
+                                Click="Reopen_Click"
+                                Content="다시 열기" />
+                        <Button Margin="6,0,0,0"
+                                Padding="12,4"
+                                Click="Compare_Click"
+                                Content="비교" />
+                    </StackPanel>
+                    <TextBlock x:Name="ConflictMessage"
+                               VerticalAlignment="Center"
+                               TextWrapping="Wrap" />
+                </DockPanel>
+                <TextBox x:Name="ComparisonText"
+                         Margin="0,10,0,0"
+                         MaxHeight="240"
+                         FontFamily="Consolas"
+                         IsReadOnly="True"
+                         TextWrapping="NoWrap"
+                         VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Auto"
+                         Visibility="Collapsed" />
+            </StackPanel>
+        </Border>
+        <StackPanel Grid.Row="2"
+                    Margin="12"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal">
+            <Button Padding="14,5"
+                    Click="Cancel_Click"
+                    Content="취소"
+                    IsCancel="True" />
+            <Button x:Name="ConfirmButton"
+                    Margin="8,0,0,0"
+                    Padding="14,5"
+                    Click="Confirm_Click"
+                    Content="확인"
+                    IsEnabled="False"
+                    AutomationProperties.HelpText="지원되는 현재 Mermaid 소스가 확인되면 활성화됩니다."
+                    IsDefault="True" />
+        </StackPanel>
+    </Grid>
+</Window>

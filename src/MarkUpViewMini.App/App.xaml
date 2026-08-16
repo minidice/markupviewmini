@@ -1,0 +1,7 @@
+﻿<Application x:Class="MarkUpViewMini.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:MarkUpViewMini.App">
+    <Application.Resources>
+    </Application.Resources>
+</Application>

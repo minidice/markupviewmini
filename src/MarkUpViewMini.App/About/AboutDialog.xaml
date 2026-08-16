@@ -1,0 +1,103 @@
+<Window x:Class="MarkUpViewMini.App.About.AboutDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:ClassModifier="internal"
+        Title="정보"
+        Width="620"
+        Height="620"
+        MinWidth="480"
+        MinHeight="380"
+        WindowStartupLocation="CenterOwner"
+        Loaded="AboutDialog_Loaded"
+        PreviewKeyDown="AboutDialog_PreviewKeyDown">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="ErrorText"
+                   Padding="8"
+                   Background="#FFFFE8E6"
+                   Foreground="#FFB42318"
+                   TextWrapping="Wrap"
+                   Visibility="Collapsed"
+                   AutomationProperties.LiveSetting="Assertive" />
+
+        <Grid Grid.Row="1" Margin="0,10,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <FlowDocumentScrollViewer x:Name="BodyText"
+                                      IsSelectionEnabled="True"
+                                      IsToolBarVisible="False"
+                                      VerticalScrollBarVisibility="Auto"
+                                      AutomationProperties.Name="정보 본문">
+                <FlowDocument x:Name="BodyDocument"
+                              PagePadding="8" />
+            </FlowDocumentScrollViewer>
+
+            <ListBox x:Name="ComponentsList"
+                     Grid.Row="1"
+                     Margin="0,10,0,0"
+                     MaxHeight="360"
+                     ScrollViewer.CanContentScroll="True"
+                     VirtualizingPanel.IsVirtualizing="True"
+                     VirtualizingPanel.VirtualizationMode="Recycling"
+                     AutomationProperties.Name="타사 구성 요소 목록">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel>
+                            <TextBox IsReadOnly="True"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     BorderThickness="0"
+                                     Background="Transparent"
+                                     AutomationProperties.Name="{Binding Name, StringFormat=타사 구성 요소 정보: {0}}">
+                                <TextBox.Text>
+                                    <MultiBinding StringFormat="{}{0} {1} — {2}&#x0a;{3}">
+                                        <Binding Path="Name" />
+                                        <Binding Path="Version" />
+                                        <Binding Path="LicenseIdentifier" />
+                                        <Binding Path="SourceUrl" />
+                                    </MultiBinding>
+                                </TextBox.Text>
+                            </TextBox>
+                            <TextBox Text="{Binding NoticeText}"
+                                     IsReadOnly="True"
+                                     AcceptsReturn="True"
+                                     MaxHeight="260"
+                                     TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto"
+                                     HorizontalScrollBarVisibility="Disabled"
+                                     AutomationProperties.Name="{Binding Name, StringFormat=타사 구성 요소 고지: {0}}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+
+        <Button x:Name="CopyDiagnosticsButton"
+                Grid.Row="2"
+                Margin="0,10,0,0"
+                Padding="12,5"
+                HorizontalAlignment="Left"
+                Content="진단 정보 복사"
+                Click="CopyDiagnostics_Click"
+                AutomationProperties.Name="진단 정보 복사" />
+
+        <Button x:Name="CloseButton"
+                Grid.Row="3"
+                Margin="0,10,0,0"
+                Padding="16,5"
+                HorizontalAlignment="Right"
+                IsDefault="True"
+                Content="닫기"
+                Click="Close_Click"
+                AutomationProperties.Name="닫기" />
+    </Grid>
+</Window>

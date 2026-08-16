@@ -1,0 +1,19 @@
+{
+  "name": "@markup-view-mini/mermaid-safe",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./parser": "./flowchart-parser.js",
+    "./serializer": "./flowchart-serializer.js",
+    "./model": "./graph-model.js",
+    "./analyzer": "./analyze-mermaid-source.js",
+    "./palette": "./palette.js"
+  },
+  "scripts": {
+    "test": "vitest run --environment node"
+  },
+  "devDependencies": {
+    "vitest": "4.1.10"
+  }
+}

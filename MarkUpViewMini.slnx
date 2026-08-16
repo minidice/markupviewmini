@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MarkUpViewMini.App/MarkUpViewMini.App.csproj" />
+    <Project Path="src/MarkUpViewMini.Core/MarkUpViewMini.Core.csproj" />
+    <Project Path="src/MarkUpViewMini.Infrastructure/MarkUpViewMini.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MarkUpViewMini.App.Tests/MarkUpViewMini.App.Tests.csproj" />
+    <Project Path="tests/MarkUpViewMini.Core.Tests/MarkUpViewMini.Core.Tests.csproj" />
+    <Project Path="tests/MarkUpViewMini.Infrastructure.Tests/MarkUpViewMini.Infrastructure.Tests.csproj" />
+    <Project Path="tests/MarkUpViewMini.PerformanceTests/MarkUpViewMini.PerformanceTests.csproj" />
+    <Project Path="tests/MarkUpViewMini.WebViewProbe/MarkUpViewMini.WebViewProbe.csproj" />
+  </Folder>
+</Solution>

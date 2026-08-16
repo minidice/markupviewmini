@@ -1,0 +1,124 @@
+using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Navigation;
+
+namespace MarkUpViewMini.App.About;
+
+internal partial class AboutDialog : Window
+{
+    private const string DefaultLinkOpenFailureMessage = "링크를 열 수 없습니다.";
+    private readonly IAboutLinkLauncher launcher;
+    private readonly string diagnosticsText;
+
+    internal AboutDialog(AboutDialogContent content, IAboutLinkLauncher launcher)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        ArgumentNullException.ThrowIfNull(launcher);
+
+        InitializeComponent();
+        BodyDocument.FontFamily = FontFamily;
+        BodyDocument.FontSize = FontSize;
+        this.launcher = launcher;
+        diagnosticsText = content.DiagnosticsText;
+        Title = content.Title;
+        AutomationProperties.SetName(this, content.Title);
+        RenderBody(content);
+        ComponentsList.ItemsSource = content.Components;
+        CopyDiagnosticsButton.IsEnabled = !string.IsNullOrWhiteSpace(diagnosticsText);
+    }
+
+    internal void OpenLink(Uri uri)
+    {
+        if (launcher.TryOpen(uri, out var errorMessage))
+        {
+            return;
+        }
+
+        ErrorText.Text = string.IsNullOrWhiteSpace(errorMessage)
+            ? DefaultLinkOpenFailureMessage
+            : errorMessage;
+        ErrorText.Visibility = Visibility.Visible;
+    }
+
+    internal void CopyDiagnostics() => Clipboard.SetText(diagnosticsText);
+
+    private void RenderBody(AboutDialogContent content)
+    {
+        BodyDocument.Blocks.Clear();
+        var paragraph = new Paragraph { Margin = new Thickness(0) };
+        var cursor = 0;
+        foreach (var link in content.ClickableLinks)
+        {
+            if (!AboutLinkLauncher.IsAllowed(link))
+            {
+                continue;
+            }
+
+            var displayText = FindLinkDisplayText(content.Body, link, cursor);
+            if (displayText is null)
+            {
+                continue;
+            }
+
+            var linkIndex = content.Body.IndexOf(displayText, cursor, StringComparison.Ordinal);
+            paragraph.Inlines.Add(new Run(content.Body[cursor..linkIndex]));
+            paragraph.Inlines.Add(CreateLink(link, displayText));
+            cursor = linkIndex + displayText.Length;
+        }
+
+        paragraph.Inlines.Add(new Run(content.Body[cursor..]));
+        BodyDocument.Blocks.Add(paragraph);
+    }
+
+    private static string? FindLinkDisplayText(string body, Uri link, int startIndex)
+    {
+        string[] candidates =
+        [
+            link.OriginalString,
+            link.OriginalString.TrimEnd('/'),
+        ];
+        return candidates
+            .Distinct(StringComparer.Ordinal)
+            .FirstOrDefault(candidate => body.IndexOf(candidate, startIndex, StringComparison.Ordinal) >= 0);
+    }
+
+    private Hyperlink CreateLink(Uri link, string displayText)
+    {
+        var hyperlink = new Hyperlink(new Run(displayText))
+        {
+            NavigateUri = link,
+        };
+        hyperlink.RequestNavigate += Link_RequestNavigate;
+        AutomationProperties.SetName(hyperlink, $"외부 링크 열기: {displayText}");
+
+        return hyperlink;
+    }
+
+    private void Link_RequestNavigate(object sender, RequestNavigateEventArgs e)
+    {
+        e.Handled = true;
+        OpenLink(e.Uri);
+    }
+
+    private void CopyDiagnostics_Click(object sender, RoutedEventArgs e) => CopyDiagnostics();
+
+    private void Close_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void AboutDialog_Loaded(object sender, RoutedEventArgs e)
+    {
+        FocusManager.SetFocusedElement(this, CloseButton);
+        CloseButton.Focus();
+    }
+
+    private void AboutDialog_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            Close();
+        }
+    }
+}

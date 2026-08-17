@@ -4,7 +4,6 @@ import { redo, undo } from "@codemirror/commands";
 import {
   createMermaidEditPayload,
   createMermaidGutter,
-  describeMermaidAction,
   findMermaidBlocks,
 } from "./mermaid-blocks.js";
 
@@ -190,7 +189,6 @@ export function createEditorController({
       || queue.acceptedRevision !== snapshot.revision
       || queue.acceptedRawText !== snapshot.rawText
       || !block
-      || !describeMermaidAction(block.source).enabled
       || disposed) return;
     const payload = {
       ...await createMermaidEditPayload(block),
@@ -222,7 +220,6 @@ export function createEditorController({
       rawText: entry.rawText,
     };
     const candidates = await Promise.all(findMermaidBlocks(entry.rawText)
-      .filter((block) => describeMermaidAction(block.source).enabled)
       .map(async (block) => ({ block, payload: await createMermaidEditPayload(block) })));
     const matching = candidates.filter((candidate) => candidate.payload.sourceHash === sourceHash);
     const requested = candidates.find((candidate) => candidate.block.from === from)

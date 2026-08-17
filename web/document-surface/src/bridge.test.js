@@ -187,6 +187,34 @@ describe("surface bridge schema", () => {
     root.remove();
   });
 
+  it("marks the preview's live document mode for read-only Mermaid-action styling", async () => {
+    // Break caught: the built stylesheet hides "시각 편집" via [data-document-mode="read"], but
+    // nothing kept that attribute in sync with a pure mode toggle (no content change, so
+    // renderSurface never re-ran) — the button would stay visible/clickable in read mode.
+    const root = createRoot();
+    const harness = createWebView();
+    const surface = mountDocumentSurface(root, harness.webview, { bootstrapContext: BOOTSTRAP });
+    expect(root.querySelector("[data-preview]").dataset.documentMode).toBe("read");
+
+    await harness.receive(envelope(5, {
+      payload: { ...envelope(5).payload, text: "x", mode: "edit" },
+    }));
+    expect(root.querySelector("[data-preview]").dataset.documentMode).toBe("edit");
+
+    await harness.receive({
+      ...editorCommand("document.setMode", 5),
+      payload: { mode: "read" },
+    });
+    expect(root.querySelector("[data-preview]").dataset.documentMode).toBe("read");
+
+    await harness.receive({
+      ...editorCommand("document.setMode", 5),
+      payload: { mode: "edit" },
+    });
+    expect(root.querySelector("[data-preview]").dataset.documentMode).toBe("edit");
+    surface.dispose();
+  });
+
   it("applies exact current-owner editor preferences to the active surface", async () => {
     const root = createRoot();
     const harness = createWebView();

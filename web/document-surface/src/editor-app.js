@@ -248,6 +248,7 @@ export function mountDocumentSurface(root, webview = globalThis.chrome?.webview,
   const state = createSurfaceState(bootstrapContext);
   const preview = root.querySelector("[data-preview]") ?? root;
   if (preview !== root) preview.tabIndex = -1;
+  preview.dataset.documentMode = state.mode;
   const editorWorkspace = preview === root ? null : createEditorWorkspace(root, preview);
   const tabStore = createTabStateStore();
   const findBar = createFindBar(root);
@@ -389,6 +390,7 @@ export function mountDocumentSurface(root, webview = globalThis.chrome?.webview,
   const onMessage = async (event) => {
     if (disposed) return;
     if (applyHostMessage(state, event.data)) {
+      preview.dataset.documentMode = state.mode;
       const editorState = editorController.hydrate(event.data);
       if (editorWorkspace) {
         editorWorkspace.editor.hidden = state.mode !== "edit";
@@ -485,6 +487,7 @@ export function mountDocumentSurface(root, webview = globalThis.chrome?.webview,
       && ["read", "edit"].includes(modePayload.mode)) {
       const previousFindController = activeFindController();
       state.mode = modePayload.mode;
+      preview.dataset.documentMode = state.mode;
       editorController.clearEditError();
       tabStore.captureHints(state.tabId, { mode: state.mode });
       if (editorWorkspace) editorWorkspace.editor.hidden = state.mode !== "edit";

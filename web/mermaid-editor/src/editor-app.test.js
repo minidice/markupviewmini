@@ -51,15 +51,14 @@ describe("block session state", () => {
     expect(posted).toEqual([{ version: 1, type: "mermaid.ready", payload: {} }]);
   });
 
-  it("reports support for the exact current source and refuses unsupported confirm", () => {
-    // Break caught: native Confirm can submit source that the current editor analysis has locked.
+  it("reports non-flowchart source as confirmable (limited text mode) but refuses empty confirm", () => {
+    // Break caught: a diagram the visual editor's strict flowchart parser can't understand
+    // (any other Mermaid diagram type, malformed flowchart syntax, ...) used to be locked out
+    // of Confirm entirely - a dead end. "supported" on this bridge message means "the host may
+    // accept a confirm", not "the visual canvas understands it", so it stays true for any
+    // non-empty source; only a genuinely empty source should block confirm.
     const posted = [];
-    const session = createBlockSession(
-      { postMessage: (message) => posted.push(message) },
-      (source) => source.startsWith("flowchart")
-        ? { supported: true, reason: "" }
-        : { supported: false, reason: "unsupported-diagram-type" },
-    );
+    const session = createBlockSession({ postMessage: (message) => posted.push(message) });
     session.open({ sessionId: "s-1", source: "sequenceDiagram\nA->>B: hi", language: "mermaid" });
 
     expect(posted.at(-1)).toEqual({
@@ -70,19 +69,28 @@ describe("block session state", () => {
         source: "sequenceDiagram\nA->>B: hi",
         language: "mermaid",
         sourceVersion: 0,
+        supported: true,
+        reason: "",
+      },
+    });
+    expect(session.confirm()).toBe(true);
+    expect(posted.at(-1).type).toBe("mermaid.confirm");
+
+    session.change("   ");
+    expect(posted.at(-1)).toEqual({
+      version: 1,
+      type: "mermaid.validityChanged",
+      payload: {
+        sessionId: "s-1",
+        source: "   ",
+        language: "mermaid",
+        sourceVersion: 1,
         supported: false,
-        reason: "unsupported-diagram-type",
+        reason: "empty",
       },
     });
     expect(session.confirm()).toBe(false);
-    expect(posted.some((message) => message.type === "mermaid.confirm")).toBe(false);
-
-    session.change("flowchart LR\nA --> B");
-    expect(posted.at(-1).type).toBe("mermaid.validityChanged");
-    expect(posted.at(-1).payload.sourceVersion).toBe(1);
-    expect(posted.at(-1).payload.supported).toBe(true);
-    expect(session.confirm()).toBe(true);
-    expect(posted.at(-1).type).toBe("mermaid.confirm");
+    expect(posted.filter((message) => message.type === "mermaid.confirm")).toHaveLength(1);
   });
 
   it("increments one source version per change and binds confirm to the current version", () => {
@@ -247,6 +255,54 @@ describe("mounted visual editor", () => {
     expect(tb.getAttribute("aria-pressed")).toBe("false");
     expect(posted.filter((message) => message.type === "mermaid.changed").at(-1)?.payload.source)
       .toBe("flowchart LR\nA --> B");
+
+    dispose();
+    root.remove();
+  });
+
+  it("opens a non-flowchart diagram in limited text mode with Confirm enabled until cleared", async () => {
+    // Break caught: opening a diagram the strict flowchart parser rejects left Confirm
+    // permanently disabled - the "시각 편집" action was a dead end for any diagram type
+    // other than flowchart, or any flowchart with a syntax slip. It must still let the user
+    // edit and confirm raw text; only an empty source should block Confirm.
+    const page = new DOMParser().parseFromString(
+      readFileSync("index.html", "utf8"),
+      "text/html",
+    );
+    const root = page.querySelector("#mermaid-app");
+    document.body.append(root);
+    const posted = [];
+    let receiveMessage;
+    const bridge = {
+      postMessage: (message) => posted.push(message),
+      addEventListener: (_type, handler) => { receiveMessage = handler; },
+      removeEventListener: vi.fn(),
+    };
+    const render = vi.fn(async () => ({ ok: false, reason: "not-a-flowchart", svg: "" }));
+
+    const dispose = EditorApp.mountMermaidEditor(root, { bridge, render });
+    receiveMessage({ data: {
+      version: 1,
+      type: "mermaid.open",
+      payload: { sessionId: "s-limited", source: "sequenceDiagram\nA->>B: hi", language: "mermaid" },
+    } });
+    await vi.waitFor(() => expect(root.querySelector("[data-status]").textContent).not.toBe(""));
+
+    const confirm = root.querySelector("[data-confirm]");
+    const source = root.querySelector("[data-source]");
+    expect(confirm.disabled).toBe(false);
+    expect(source.disabled).toBe(false);
+    expect(root.querySelector("[data-status]").textContent).toContain("텍스트로만 편집");
+
+    confirm.click();
+    expect(posted.at(-1)).toMatchObject({
+      type: "mermaid.confirm",
+      payload: { source: "sequenceDiagram\nA->>B: hi" },
+    });
+
+    source.value = "";
+    source.dispatchEvent(new Event("input"));
+    expect(confirm.disabled).toBe(true);
 
     dispose();
     root.remove();

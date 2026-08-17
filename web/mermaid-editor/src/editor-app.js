@@ -15,19 +15,27 @@ function validOpenPayload(payload) {
     Object.keys(payload).length === 3;
 }
 
-export function createBlockSession(bridge, analyze = analyzeMermaidSource) {
+// The bridge's "supported" flag means "the host may accept a mermaid.confirm for this
+// source", not "the visual canvas understands this source". Diagrams the strict flowchart
+// parser rejects still confirm as plain text (see confirmableSource below) so the "시각 편집"
+// action is never a dead end - only a genuinely empty source blocks confirm.
+function confirmableSource(source) {
+  return source.trim() !== "";
+}
+
+export function createBlockSession(bridge) {
   const post = (type, payload) => bridge.postMessage({ version: BRIDGE_VERSION, type, payload });
   const reportValidity = (session) => {
-    const analysis = analyze(session.source);
+    const confirmable = confirmableSource(session.source);
     post("mermaid.validityChanged", {
       sessionId: session.sessionId,
       source: session.source,
       language: session.language,
       sourceVersion: session.sourceVersion,
-      supported: analysis.supported === true,
-      reason: analysis.supported ? "" : String(analysis.reason ?? "unsupported-syntax"),
+      supported: confirmable,
+      reason: confirmable ? "" : "empty",
     });
-    return analysis.supported === true;
+    return confirmable;
   };
   const session = {
     sessionId: null,
@@ -57,7 +65,7 @@ export function createBlockSession(bridge, analyze = analyzeMermaidSource) {
       return true;
     },
     confirm() {
-      if (!this.isOpen || !analyze(this.source).supported) return false;
+      if (!this.isOpen || !confirmableSource(this.source)) return false;
       post("mermaid.confirm", {
         sessionId: this.sessionId,
         source: this.source,
@@ -145,7 +153,7 @@ export function mountMermaidEditor(root, options = {}) {
   const serialize = options.serialize ?? serializeFlowchart;
   const renderDiagramSource = options.render ?? renderDiagram;
   const bridge = options.bridge ?? createWebViewBridge();
-  const session = createBlockSession(bridge, analyze);
+  const session = createBlockSession(bridge);
   const source = root.querySelector("[data-source]");
   const viewport = root.querySelector("[data-canvas-viewport]");
   const canvas = root.querySelector("[data-canvas]");
@@ -187,7 +195,7 @@ export function mountMermaidEditor(root, options = {}) {
         canvas.innerHTML = diagram.svg;
         makeRenderedNodesKeyboardAccessible(canvas);
       } else {
-        status.textContent = `Visual editing is locked: ${diagram.reason}`;
+        status.textContent = "이 다이어그램은 미리보기를 표시할 수 없습니다. 텍스트로만 편집할 수 있습니다.";
         canvas.replaceChildren();
       }
     },
@@ -205,7 +213,7 @@ export function mountMermaidEditor(root, options = {}) {
   });
   const setControls = (enabled) => {
     source.disabled = !enabled;
-    confirm.disabled = !enabled || !analysis().supported;
+    confirm.disabled = !enabled || !confirmableSource(session.source);
     cancel.disabled = !enabled;
     updateDirections();
   };

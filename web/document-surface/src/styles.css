@@ -282,10 +282,8 @@ body {
   z-index: 1;
 }
 
-.mermaid-edit-action:disabled,
-.mermaid-edit-action[aria-disabled="true"] {
-  cursor: not-allowed;
-  opacity: 0.55;
+[data-document-mode="read"] .mermaid-edit-action {
+  display: none;
 }
 
 .mermaid-edit-action:focus {

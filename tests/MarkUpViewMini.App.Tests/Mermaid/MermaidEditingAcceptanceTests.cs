@@ -94,6 +94,45 @@ public sealed class MermaidEditingAcceptanceTests
     }
 
     [Fact]
+    public async Task Confirm_applies_a_non_flowchart_replacement_source_verbatim()
+    {
+        // Break caught: opening a diagram (or typing a replacement) the strict flowchart
+        // parser can't understand used to be a dead end for "시각 편집" - the safe parser gate
+        // blocked the action from ever opening. The fix moved that decision entirely into the
+        // web editor (it now opens a limited, text-only mode for such source instead of
+        // refusing to open); this bridge never validated mermaid syntax itself, it always just
+        // trusted whatever the editor reported as "supported". This locks that contract in
+        // end-to-end: a non-flowchart replacement, confirmed as supported, must still apply
+        // verbatim to the document.
+        const string LimitedModeReplacement = "sequenceDiagram\nA->>B: hi";
+        var scenario = await Scenario.OpenAsync();
+        using var bridge = scenario.CreateBridge();
+        Assert.True(bridge.TryHandleMessage(Message("mermaid.ready", new { })));
+        Assert.True(bridge.TryHandleMessage(Changed(scenario.Snapshot.SessionId, LimitedModeReplacement, 1)));
+        Assert.True(bridge.TryHandleMessage(Message("mermaid.validityChanged", new
+        {
+            sessionId = scenario.Snapshot.SessionId,
+            source = LimitedModeReplacement,
+            language = "mermaid",
+            sourceVersion = 1,
+            supported = true,
+            reason = "",
+        })));
+        Assert.True(bridge.TryHandleMessage(Message("mermaid.confirm", new
+        {
+            sessionId = scenario.Snapshot.SessionId,
+            source = LimitedModeReplacement,
+            language = "mermaid",
+            sourceVersion = 1,
+        })));
+
+        scenario.Apply(await bridge.Completion);
+
+        Assert.Contains(LimitedModeReplacement, scenario.Tab.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain(FirstSource, scenario.Tab.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Confirm_is_refused_until_the_editor_reports_supported_current_source()
     {
         // Break caught: the native Confirm path can submit stale or unsupported source before validation completes.

@@ -93,4 +93,20 @@ describe("document surface presentation", () => {
     expect(getComputedStyle(button).outline).toContain("2px solid");
     expect(getComputedStyle(button).outlineOffset).toBe("2px");
   });
+
+  it("hides the Mermaid visual-edit action in read mode but shows it in edit mode", async () => {
+    // Break caught: the "시각 편집" action was reachable and clickable while reading a document,
+    // even though editing only ever happens from the edit-mode split view.
+    await installBuiltStyles();
+    document.body.innerHTML = [
+      '<article data-preview data-document-mode="read">',
+      '  <div class="mermaid-diagram"><button class="mermaid-edit-action">시각 편집</button></div>',
+      "</article>",
+    ].join("");
+    const readButton = document.querySelector(".mermaid-edit-action");
+    expect(getComputedStyle(readButton).display).toBe("none");
+
+    document.querySelector("[data-preview]").dataset.documentMode = "edit";
+    expect(getComputedStyle(readButton).display).not.toBe("none");
+  });
 });

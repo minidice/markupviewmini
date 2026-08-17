@@ -7,6 +7,24 @@ const fenceParser = new MarkdownIt();
 const actionDescriptions = new WeakMap();
 let descriptionSequence = 0;
 
+// These no longer describe why the action is blocked - it never is. They describe why a
+// block opens in the editor's limited text-only mode (no visual canvas/inspector) instead of
+// the full visual mode. See createActionButton below.
+const LIMITED_MODE_REASON_MESSAGES = {
+  "flowchart-required": "flowchart 다이어그램만 시각 편집을 지원합니다. 텍스트로만 편집할 수 있습니다.",
+  "empty": "빈 다이어그램은 텍스트로만 편집할 수 있습니다.",
+  "mixed-newlines": "줄바꿈 형식이 섞여 있어 텍스트로만 편집할 수 있습니다.",
+  "unsupported-syntax": "이 구문은 시각 편집기에서 지원하지 않아 텍스트로만 편집할 수 있습니다.",
+  "unsupported-colour": "지원하지 않는 색상 지정이라 텍스트로만 편집할 수 있습니다.",
+  "ambiguous-node-declaration": "같은 노드가 두 번 선언되어 텍스트로만 편집할 수 있습니다.",
+  "ambiguous-node-style": "같은 노드에 스타일이 두 번 지정되어 텍스트로만 편집할 수 있습니다.",
+  "render-failed": "다이어그램을 렌더링하지 못해 텍스트로만 편집할 수 있습니다.",
+};
+
+export function describeLimitedModeReason(code) {
+  return LIMITED_MODE_REASON_MESSAGES[code] ?? "이 다이어그램은 텍스트로만 편집할 수 있습니다.";
+}
+
 function sourceLines(source) {
   const lines = [];
   for (let start = 0; start < source.length;) {
@@ -81,10 +99,14 @@ export async function createMermaidEditPayload(block) {
   return { from: block.from, to: block.to, source: block.source, sourceHash };
 }
 
-function createActionButton(block, onRequested, actionOrigin, actionSurface, disabledReason = null) {
-  const action = disabledReason === null
+function createActionButton(block, onRequested, actionOrigin, actionSurface, limitedModeReason = null) {
+  // A block whose source the strict flowchart parser rejects still opens - the editor falls
+  // back to a text-only mode for it (see web/mermaid-editor's confirmableSource). So this
+  // button is always clickable; "action.enabled" only decides whether we show a heads-up that
+  // it'll open in that limited mode instead of the full visual canvas.
+  const action = limitedModeReason === null
     ? describeMermaidAction(block.source)
-    : { enabled: false, reason: disabledReason };
+    : { enabled: false, reason: limitedModeReason };
   const button = document.createElement("button");
   button.type = "button";
   button.className = "mermaid-edit-action";
@@ -99,30 +121,32 @@ function createActionButton(block, onRequested, actionOrigin, actionSurface, dis
     : EDIT_LABEL;
   if (action.enabled) {
     button.setAttribute("aria-label", accessibleLabel);
-    button.addEventListener("click", async () => {
-      if (!describeMermaidAction(block.source).enabled) return;
-      const payload = await createMermaidEditPayload(block);
-      await onRequested?.({
-        ...payload,
-        actionId: button.dataset.mermaidActionId,
-        actionOrigin,
-      }, block);
-    });
   } else {
-    button.setAttribute("aria-disabled", "true");
-    button.title = action.reason;
-    button.setAttribute("aria-label", `${accessibleLabel}: ${action.reason}`);
+    const reasonMessage = describeLimitedModeReason(action.reason);
+    button.dataset.mermaidLimitedMode = "true";
+    button.title = reasonMessage;
+    button.setAttribute("aria-label", `${accessibleLabel}: ${reasonMessage}`);
     const description = document.createElement("span");
     description.id = `mermaid-action-reason-${++descriptionSequence}`;
     description.className = "mermaid-action-reason";
-    description.textContent = action.reason;
+    description.textContent = reasonMessage;
     button.setAttribute("aria-describedby", description.id);
     actionDescriptions.set(button, description);
   }
+  button.addEventListener("click", async () => {
+    const payload = await createMermaidEditPayload(block);
+    await onRequested?.({
+      ...payload,
+      actionId: button.dataset.mermaidActionId,
+      actionOrigin,
+    }, block);
+  });
   return button;
 }
 
 function createGutterProxy(block) {
+  // Purely a click proxy into the real (accessible-panel) action button, which carries all of
+  // the enabled/limited-mode logic itself - nothing to duplicate here.
   const button = document.createElement("button");
   button.type = "button";
   button.className = "mermaid-edit-action";
@@ -131,13 +155,7 @@ function createGutterProxy(block) {
   button.textContent = EDIT_LABEL;
   button.tabIndex = -1;
   button.setAttribute("aria-hidden", "true");
-  const action = describeMermaidAction(block.source);
-  if (!action.enabled) {
-    button.setAttribute("aria-disabled", "true");
-    button.title = action.reason;
-  }
   button.addEventListener("click", () => {
-    if (!describeMermaidAction(block.source).enabled) return;
     const editor = button.closest(".cm-editor");
     const panel = editor?.querySelector(
       `[data-mermaid-action-surface="panel"][data-mermaid-opening-line="${block.openingLine}"]`,
@@ -147,9 +165,9 @@ function createGutterProxy(block) {
   return button;
 }
 
-export function addRenderedMermaidAction(element, block, onRequested, disabledReason = null) {
+export function addRenderedMermaidAction(element, block, onRequested, limitedModeReason = null) {
   if (!element || !block) return null;
-  const button = createActionButton(block, onRequested, "rendered", "rendered", disabledReason);
+  const button = createActionButton(block, onRequested, "rendered", "rendered", limitedModeReason);
   const description = actionDescriptions.get(button);
   element.append(button);
   if (description) element.append(description);

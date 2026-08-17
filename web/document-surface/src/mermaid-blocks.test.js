@@ -5,6 +5,7 @@ import { createEditorController } from "./editor-controller.js";
 import {
   createMermaidEditPayload,
   createMermaidGutter,
+  describeLimitedModeReason,
   describeMermaidAction,
   findMermaidBlocks,
   focusMermaidAction,
@@ -262,8 +263,11 @@ describe("Mermaid block actions", () => {
     container.remove();
   });
 
-  it("renders an accessible disabled preview action and never requests an edit", async () => {
-    // Break caught: unsupported rendered source can emit an edit request.
+  it("renders a clickable limited-mode preview action and still requests an edit", async () => {
+    // Break caught: a diagram the strict flowchart parser rejects (any other Mermaid
+    // diagram type, malformed flowchart syntax, ...) used to render a dead, unclickable
+    // button. It must still open the editor - just in limited (text-only) mode - so the
+    // action stays a real edit affordance, not a wall.
     const container = document.createElement("div");
     const requested = vi.fn();
     await renderPreview("~~~mermaid\nsequenceDiagram\nA->>B: hi\n~~~", {
@@ -274,22 +278,24 @@ describe("Mermaid block actions", () => {
 
     const button = container.querySelector("[data-mermaid-edit-action]");
     expect(button?.disabled).toBe(false);
-    expect(button?.getAttribute("aria-disabled")).toBe("true");
+    expect(button?.getAttribute("aria-disabled")).toBeNull();
+    expect(button?.dataset.mermaidLimitedMode).toBe("true");
     expect(button?.tabIndex).toBe(0);
     expect(button?.title).not.toBe("");
     expect(button?.getAttribute("aria-label")).toContain(button.title);
     const reason = container.querySelector(`#${button.getAttribute("aria-describedby")}`);
     expect(reason?.textContent).toBe(button.title);
     button.click();
-    await Promise.resolve();
-    expect(requested).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(requested).toHaveBeenCalledOnce());
     container.remove();
   });
 
   it.each([
-    ["safe parser", "sequenceDiagram\nA->>B: hi", "flowchart-required"],
-    ["renderer", "flowchart LR\nA --> B", "render-failed"],
-  ])("keeps a discoverable disabled action with the %s rejection reason", async (_name, source, reason) => {
+    ["safe parser", "sequenceDiagram\nA->>B: hi", "flowchart 다이어그램만 시각 편집을 지원합니다. 텍스트로만 편집할 수 있습니다."],
+    ["renderer", "flowchart LR\nA --> B", "다이어그램을 렌더링하지 못해 텍스트로만 편집할 수 있습니다."],
+  ])("keeps a discoverable limited-mode action with the %s rejection reason in Korean", async (_name, source, message) => {
+    // Break caught: the limited-mode reason surfaced only as an internal English code
+    // ("unsupported-syntax", "render-failed", ...) with no on-screen explanation.
     const container = document.createElement("div");
     document.body.append(container);
     const requested = vi.fn();
@@ -304,16 +310,25 @@ describe("Mermaid block actions", () => {
     const button = container.querySelector("[data-mermaid-edit-action]");
     expect(button).not.toBeNull();
     expect(button.disabled).toBe(false);
-    expect(button.getAttribute("aria-disabled")).toBe("true");
+    expect(button.getAttribute("aria-disabled")).toBeNull();
+    expect(button.dataset.mermaidLimitedMode).toBe("true");
     expect(button.tabIndex).toBe(0);
+    expect(button.title).toBe(message);
     const described = container.querySelector(`#${button.getAttribute("aria-describedby")}`);
-    expect(described?.textContent).toBe(reason);
+    expect(described?.textContent).toBe(message);
     button.focus();
     expect(document.activeElement).toBe(button);
     button.click();
-    await Promise.resolve();
-    expect(requested).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(requested).toHaveBeenCalledOnce());
     container.remove();
+  });
+
+  it("falls back to a generic Korean message for an unmapped limited-mode reason code", () => {
+    // Break caught: an unrecognized reason code (e.g. a future parser addition) would leave
+    // the tooltip/description blank instead of degrading to something readable.
+    expect(describeLimitedModeReason("some-future-reason-code")).toBe(
+      "이 다이어그램은 텍스트로만 편집할 수 있습니다.",
+    );
   });
 
   it("keeps a later rendered action mapped when an earlier Mermaid block cannot render", async () => {
@@ -334,9 +349,9 @@ describe("Mermaid block actions", () => {
     await renderPreview(markdown, { container, mermaidAdapter, onMermaidEditRequested: requested });
     const buttons = [...container.querySelectorAll("[data-mermaid-edit-action]")];
     expect(buttons).toHaveLength(2);
-    expect(buttons.find((button) => button.getAttribute("aria-disabled") === "true")?.title)
-      .toBe("flowchart-required");
-    const enabled = buttons.find((button) => button.getAttribute("aria-disabled") !== "true");
+    expect(buttons.find((button) => button.dataset.mermaidLimitedMode === "true")?.title)
+      .toBe(describeLimitedModeReason("flowchart-required"));
+    const enabled = buttons.find((button) => button.dataset.mermaidLimitedMode !== "true");
     enabled.click();
 
     await vi.waitFor(() => expect(requested).toHaveBeenCalledOnce());
@@ -398,16 +413,17 @@ describe("Mermaid block actions", () => {
     expect(button).not.toBeNull();
     expect(button.closest('[aria-hidden="true"]')).toBeNull();
     expect(button.disabled).toBe(false);
-    expect(button.getAttribute("aria-disabled")).toBe("true");
+    expect(button.getAttribute("aria-disabled")).toBeNull();
+    expect(button.dataset.mermaidLimitedMode).toBe("true");
     expect(button.tabIndex).toBe(0);
     expect(button.dataset.mermaidActionOrigin).toBe("editor");
     const described = controller.view.dom.querySelector(`#${button.getAttribute("aria-describedby")}`);
-    expect(described?.textContent).toBe("flowchart-required");
+    expect(described?.textContent).toBe(describeLimitedModeReason("flowchart-required"));
     button.focus();
     expect(document.activeElement).toBe(button);
     button.click();
-    await Promise.resolve();
-    expect(messages).toEqual([]);
+    await vi.waitFor(() => expect(messages).toHaveLength(1));
+    expect(messages[0].type).toBe("mermaid.editRequested");
     controller.dispose();
   });
 
@@ -674,8 +690,9 @@ describe("Mermaid block actions", () => {
     controller.dispose();
   });
 
-  it("keeps an unsupported CodeMirror action disabled and silent", async () => {
-    // Break caught: a disabled source-editor action still posts an edit request.
+  it("still opens a CodeMirror action for unsupported source, marked as limited mode", async () => {
+    // Break caught: a source the strict flowchart parser rejects used to leave the CodeMirror
+    // gutter/panel action dead. It must still request an edit (in limited/text-only mode).
     const messages = [];
     const controller = createEditorController({
       host: { postMessage: (message) => messages.push(message) },
@@ -685,15 +702,16 @@ describe("Mermaid block actions", () => {
     const button = controller.view.dom.querySelector("[data-mermaid-edit-action]");
 
     expect(button?.disabled).toBe(false);
-    expect(button?.getAttribute("aria-disabled")).toBe("true");
+    expect(button?.getAttribute("aria-disabled")).toBeNull();
+    expect(button?.dataset.mermaidLimitedMode).toBe("true");
     expect(button?.tabIndex).toBe(0);
     expect(button?.title).not.toBe("");
     expect(button?.getAttribute("aria-label")).toContain(button.title);
     const reason = controller.view.dom.querySelector(`#${button.getAttribute("aria-describedby")}`);
     expect(reason?.textContent).toBe(button.title);
     button.click();
-    await Promise.resolve();
-    expect(messages).toEqual([]);
+    await vi.waitFor(() => expect(messages).toHaveLength(1));
+    expect(messages[0].type).toBe("mermaid.editRequested");
     controller.dispose();
   });
 

@@ -13,12 +13,23 @@ describe("markdown preview", () => {
     expect(MERMAID_CONFIG.securityLevel).toBe("strict");
     expect(MERMAID_CONFIG.secure).toEqual(expect.arrayContaining([
       "securityLevel",
+      "htmlLabels",
       "theme",
       "themeCSS",
       "themeVariables",
       "fontFamily",
       "flowchart",
     ]));
+  });
+
+  it("disables Mermaid html labels on both the current and deprecated config keys", () => {
+    // Mermaid 11 reads the top-level `htmlLabels` flag for most label-layout decisions and
+    // only falls back to `flowchart.htmlLabels` in a few places, defaulting to `true` (i.e.
+    // foreignObject + HTML labels) when the top-level flag is missing. sanitizeMermaidSvg
+    // forbids foreignObject, so any drift here silently strips every node label from the
+    // rendered diagram while leaving the shapes intact. Both flags must stay false together.
+    expect(MERMAID_CONFIG.htmlLabels).toBe(false);
+    expect(MERMAID_CONFIG.flowchart.htmlLabels).toBe(false);
   });
 
   it("sanitizes active raw HTML, event handlers, and javascript links", async () => {
@@ -136,6 +147,153 @@ describe("markdown preview", () => {
     expect(container.querySelector("script, foreignObject, iframe, image, a")).toBeNull();
     expect(container.querySelector("[onload], [onclick], [onerror], [href], [xlink\\:href]")).toBeNull();
     expect(html).not.toMatch(/(?:https?:|file:|data:|javascript:|\/\/|@import|url\s*\()/iu);
+  });
+
+  it("keeps every safe theme rule when one rule uses a comma selector or an unsupported property", async () => {
+    // Mermaid's real base theme stylesheet has 50+ rules, several using comma-separated
+    // selectors ("A, B { ... }") and CSSOM-expanded longhand properties this sanitizer's
+    // allowlist doesn't cover (animation-*, border-*, etc). Losing an unsupported rule is
+    // fine; losing the ENTIRE stylesheet because of it is not — every unstyled node/edge then
+    // falls back to the SVG default fill (black), which is exactly what happened before this
+    // fix: the whole <style> block was discarded the moment any single rule failed validation.
+    const container = document.createElement("div");
+    const mermaidAdapter = {
+      async render() {
+        return {
+          svg: [
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40">',
+            "<style>",
+            ".node rect, .node circle, .node polygon { fill: rgb(232, 245, 233); stroke: rgb(46, 125, 50); }",
+            ".unsupported-only { animation-name: spin; animation-duration: 1s; }",
+            "</style>",
+            '<g class="node"><polygon points="0,0 10,10 0,20"></polygon></g>',
+            "</svg>",
+          ].join(""),
+        };
+      },
+    };
+
+    await renderPreview("~~~mermaid\nflowchart LR\nA --> B\n~~~", { container, mermaidAdapter });
+
+    const styleText = container.querySelector("style")?.textContent ?? "";
+    expect(styleText).toContain("fill: rgb(232, 245, 233)");
+    expect(styleText).toContain(".node rect");
+    expect(styleText).toContain(".node circle");
+    expect(styleText).toContain(".node polygon");
+    expect(styleText).not.toContain("animation");
+  });
+
+  it("gives fill-less edge-label background rects a fill and recenters them on their own height", async () => {
+    // Mermaid's SVG-text-mode edge labels (htmlLabels:false) ship the background rect that's
+    // meant to sit behind a "Y"/"N"-style link label with no fill anywhere — not stripped by
+    // this sanitizer, mermaid's own render output already omits it. An SVG rect with no fill
+    // defaults to solid black, so without this patch every edge label renders as an opaque box.
+    // Mermaid also positions this rect assuming alphabetic-baseline text metrics (e.g.
+    // y="-1" height="23", not centered on 0) — once the label text is re-centered on
+    // dominant-baseline below, that mismatch pokes the text out above the rect, so this
+    // recenters the rect on the same local origin instead.
+    const container = document.createElement("div");
+    const mermaidAdapter = {
+      async render() {
+        return {
+          svg: [
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20">',
+            '<g class="edgeLabel"><rect class="background" x="0" y="0" width="10" height="10"></rect><text>Y</text></g>',
+            "</svg>",
+          ].join(""),
+        };
+      },
+    };
+
+    await renderPreview("~~~mermaid\nflowchart LR\nA -->|Y| B\n~~~", { container, mermaidAdapter });
+
+    const backgroundRect = container.querySelector("rect.background");
+    expect(backgroundRect?.getAttribute("fill")).toBe("white");
+    expect(backgroundRect?.getAttribute("y")).toBe("-5");
+  });
+
+  it("leaves an explicitly styled background rect's fill alone", async () => {
+    const container = document.createElement("div");
+    const mermaidAdapter = {
+      async render() {
+        return {
+          svg: [
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20">',
+            '<rect class="background" fill="red" x="0" y="0" width="10" height="10"></rect>',
+            "</svg>",
+          ].join(""),
+        };
+      },
+    };
+
+    await renderPreview("~~~mermaid\nflowchart LR\nA --> B\n~~~", { container, mermaidAdapter });
+
+    expect(container.querySelector("rect.background")?.getAttribute("fill")).toBe("red");
+  });
+
+  it("centers word-wrapped label text that mermaid renders without a text-anchor", async () => {
+    // For a short, single-chunk label mermaid emits text-anchor="middle" on both the <text>
+    // and its wrapping "row" tspan, so the label straddles its x="0" anchor point. But once a
+    // label is long enough to word-wrap into multiple inner tspans, mermaid's SVG-text-mode
+    // renderer (htmlLabels:false) stops emitting text-anchor at all — confirmed in mermaid's
+    // own raw, unsanitized output, not something this sanitizer strips. Left un-anchored, SVG
+    // defaults to "start" (left-aligned), so the label still starts at the node's horizontal
+    // center but grows rightward past the shape's edge instead of being centered on it.
+    const container = document.createElement("div");
+    const mermaidAdapter = {
+      async render() {
+        return {
+          svg: [
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40">',
+            '<g class="node">',
+            '<rect x="-60" y="-17" width="120" height="34"></rect>',
+            '<text y="-10.1"><tspan class="row" x="0" y="-0.1em" dy="1.1em">',
+            '<tspan class="text-inner-tspan">일반</tspan><tspan class="text-inner-tspan"> 공격</tspan><tspan class="text-inner-tspan"> 판정</tspan>',
+            "</tspan></text>",
+            "</g>",
+            "</svg>",
+          ].join(""),
+        };
+      },
+    };
+
+    await renderPreview("~~~mermaid\nflowchart LR\nA --> B\n~~~", { container, mermaidAdapter });
+
+    const text = container.querySelector("text");
+    const rowTspan = container.querySelector('tspan[x="0"]');
+    expect(text?.getAttribute("text-anchor")).toBe("middle");
+    expect(rowTspan?.getAttribute("text-anchor")).toBe("middle");
+  });
+
+  it("vertically centers label text on the font's central baseline instead of its alphabetic one", async () => {
+    // Mermaid positions a label's baseline at roughly the node's vertical center (e.g.
+    // y="-0.1em" on the row tspan), which only reads as centered if the rendering font's
+    // ascent and descent happen to be symmetric around that baseline. Most fonts' ascent is
+    // taller than their descent, so the glyphs drawn end up sitting mostly above the baseline —
+    // visibly shifting the label upward off-center. dominant-baseline="central" anchors to the
+    // font's own central metric instead, so this holds regardless of which font renders it.
+    const container = document.createElement("div");
+    const mermaidAdapter = {
+      async render() {
+        return {
+          svg: [
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 34">',
+            '<g class="node">',
+            '<rect x="-30" y="-17" width="60" height="34"></rect>',
+            '<text y="-10.1"><tspan class="row" x="0" y="-0.1em">시작</tspan></text>',
+            "</g>",
+            "</svg>",
+          ].join(""),
+        };
+      },
+    };
+
+    await renderPreview("~~~mermaid\nflowchart LR\nA --> B\n~~~", { container, mermaidAdapter });
+
+    const text = container.querySelector("text");
+    const rowTspan = container.querySelector('tspan[x="0"]');
+    expect(text?.getAttribute("dominant-baseline")).toBe("central");
+    expect(rowTspan?.getAttribute("dominant-baseline")).toBe("central");
   });
 
   it("never attaches renderer-controlled CSS to the live document head", async () => {

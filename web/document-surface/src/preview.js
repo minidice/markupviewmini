@@ -19,12 +19,22 @@ export const MERMAID_CONFIG = {
   startOnLoad: false,
   securityLevel: "strict",
   maxTextSize: 50000,
+  // Mermaid 11 deprecated `flowchart.htmlLabels` in favor of this top-level flag; several
+  // internal label-layout code paths only read the top-level value and default to `true`
+  // (foreignObject + HTML) when it is missing, regardless of the nested flowchart setting.
+  // Both flags must stay false and in sync. HTML labels are NOT an option here: DOMPurify
+  // unconditionally strips all element content inside <foreignObject> (verified — no allowlist
+  // or config combination lets HTML through; this is a deliberate DOMPurify mXSS defense with
+  // no override), so `htmlLabels:true` renders diamonds/boxes with every label silently empty.
+  // Pure SVG <text>/<tspan> labels are the only option sanitizeMermaidSvg can actually allow.
+  htmlLabels: false,
   flowchart: { htmlLabels: false },
   secure: [
     "securityLevel",
     "startOnLoad",
     "maxTextSize",
     "secure",
+    "htmlLabels",
     "theme",
     "themeCSS",
     "themeVariables",
@@ -90,11 +100,12 @@ const SAFE_MERMAID_ATTRIBUTES = [
 ];
 
 const SAFE_MERMAID_STYLE_PROPERTIES = new Set([
-  "alignment-baseline", "background-color", "color", "dominant-baseline", "fill",
+  "alignment-baseline", "background-color", "color", "display", "dominant-baseline", "fill",
   "fill-opacity", "font-family", "font-size", "font-style", "font-weight", "line-height",
-  "margin", "max-width", "opacity", "overflow", "padding", "shape-rendering", "stroke",
-  "stroke-dasharray", "stroke-linecap", "stroke-linejoin", "stroke-opacity", "stroke-width",
-  "text-align", "text-anchor", "white-space",
+  "margin", "margin-bottom", "margin-left", "margin-right", "margin-top", "max-width",
+  "opacity", "overflow", "padding", "shape-rendering", "stroke", "stroke-dasharray",
+  "stroke-linecap", "stroke-linejoin", "stroke-opacity", "stroke-width", "text-align",
+  "text-anchor", "white-space",
 ]);
 
 const LOCAL_FRAGMENT_ATTRIBUTES = new Set([
@@ -161,17 +172,38 @@ function scopedMermaidSelector(selector, rootId, originalRootId) {
   return `#${rootId} ${trimmed}`;
 }
 
+// Mermaid's theme stylesheet targets several shape elements per rule (e.g.
+// ".node rect, .node circle, .node ellipse"). Each comma-separated compound selector is
+// scoped/validated independently; the whole rule is rejected if any part is unsafe.
+function scopedMermaidSelectorList(selectorText, rootId, originalRootId) {
+  const parts = selectorText.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length === 0) return null;
+  const scoped = [];
+  for (const part of parts) {
+    const result = scopedMermaidSelector(part, rootId, originalRootId);
+    if (!result) return null;
+    scoped.push(result);
+  }
+  return scoped.join(", ");
+}
+
 function sanitizeMermaidStyleSheet(css, rootId, originalRootId) {
   if (!css || hasUnsafeCssResource(css)) return "";
   const rules = detachedMermaidStyleRules(css);
   if (!rules?.length) return "";
 
+  // A single rule this sanitizer doesn't understand (an unsupported selector shape, an
+  // @keyframes/@media block, or a declaration list with no allowlisted properties left after
+  // filtering) must only drop THAT rule. Earlier this bailed out of the whole stylesheet on the
+  // first such rule, so mermaid's base theme (56+ rules covering every default node/edge color)
+  // silently vanished entirely whenever any one rule used a shape or property this allowlist
+  // hadn't seen yet — every unstyled node then fell back to the SVG default fill (black).
   const sanitizedRules = [];
   for (const rule of rules) {
-    if (rule.type !== 1) return "";
-    const selector = scopedMermaidSelector(rule.selectorText, rootId, originalRootId);
+    if (rule.type !== 1) continue;
+    const selector = scopedMermaidSelectorList(rule.selectorText, rootId, originalRootId);
     const declarations = safeMermaidDeclarations(rule.style);
-    if (!selector || !declarations) return "";
+    if (!selector || !declarations) continue;
     sanitizedRules.push(`${selector} { ${declarations}; }`);
   }
   return sanitizedRules.join("\n");
@@ -215,6 +247,44 @@ function sanitizeMermaidSvg(svg, rootId) {
       } else if (hasUnsafeCssResource(value)) {
         element.removeAttribute(name);
       }
+    }
+  }
+  // Edge-label background rects (the pill mermaid draws behind a "Y"/"N"-style link label so
+  // it doesn't cross the line) ship from mermaid with no fill at all in SVG-text mode — not
+  // stripped by us, mermaid's own output already omits it here. An SVG rect with no fill
+  // defaults to solid black, so without this every edge label renders as an opaque black box.
+  // This rect's own vertical position also assumes mermaid's alphabetic-baseline text metrics
+  // (e.g. y="-1" for a 23-tall rect — not centered on the label group's local origin). Once
+  // the label text below is re-centered on dominant-baseline instead, that mismatch leaves the
+  // text poking out above the rect. Re-center the rect on the same local origin using only its
+  // own height, matching the centered convention every other label already uses.
+  for (const backgroundRect of root.querySelectorAll("rect.background")) {
+    const inlineStyle = backgroundRect.getAttribute("style") ?? "";
+    const hasFill = backgroundRect.hasAttribute("fill") || /(?:^|;)\s*fill\s*:/iu.test(inlineStyle);
+    if (!hasFill) backgroundRect.setAttribute("fill", "white");
+    const height = Number.parseFloat(backgroundRect.getAttribute("height") ?? "");
+    if (Number.isFinite(height) && height > 0) backgroundRect.setAttribute("y", String(-height / 2));
+  }
+  // Every label mermaid lays out around a node/edge is meant to be horizontally centered on
+  // its `x="0"` anchor point (that's what mermaid itself does for a short, single-chunk
+  // label — both the <text> and its "row" tspan get text-anchor="middle"). But once a label
+  // is long enough to word-wrap into multiple inner tspans, mermaid's SVG-text-mode renderer
+  // stops emitting text-anchor at all on the outer <text>/row-tspan pair, so it falls back to
+  // SVG's default "start" (left) anchor: the text still starts at the node's horizontal
+  // center but now grows rightward past the shape's edge instead of straddling the center.
+  // This isn't sanitizer stripping — it's missing from mermaid's own unsanitized output too.
+  for (const textElement of root.querySelectorAll("text, tspan[x]")) {
+    if (!textElement.hasAttribute("text-anchor")) textElement.setAttribute("text-anchor", "middle");
+    // Mermaid positions each label's baseline at roughly the node's vertical center (e.g.
+    // y="-0.1em" on the row tspan), which only looks centered if the rendering font's ascent
+    // and descent happen to be near-symmetric around that baseline. Most fonts' ascent is
+    // noticeably taller than their descent, so the glyphs actually drawn end up mostly above
+    // the baseline — shifting the visible label upward off-center, worse the more of the
+    // node's vertical space is taken up by ascent-heavy glyphs (CJK text included). Anchoring
+    // to the font's central baseline instead of the alphabetic one fixes this regardless of
+    // which font ends up rendering the text.
+    if (!textElement.hasAttribute("dominant-baseline")) {
+      textElement.setAttribute("dominant-baseline", "central");
     }
   }
   return root.outerHTML;

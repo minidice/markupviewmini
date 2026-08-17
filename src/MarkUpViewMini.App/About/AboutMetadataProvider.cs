@@ -2,7 +2,6 @@ using System.IO;
 using System.Reflection;
 using System.Resources;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Text.Json;
 
 namespace MarkUpViewMini.App.About;
@@ -13,6 +12,17 @@ internal sealed class AboutMetadataProvider : IAboutMetadataProvider
     private const string ApplicationLicenseResourceName = "MarkUpViewMini.App.About.Resources.app-license.txt";
     private const string NoticesUnavailableMessage = "타사 구성 요소 고지를 읽을 수 없습니다.";
     private const string LicenseUnavailableMessage = "앱 라이선스를 읽을 수 없습니다.";
+
+    private static readonly string[] HighlightedLibraryNames =
+    [
+        "mermaid",
+        "codemirror",
+        "katex",
+        "dompurify",
+        "highlight.js",
+        "markdown-it",
+        "Microsoft.Web.WebView2",
+    ];
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -75,47 +85,43 @@ internal sealed class AboutMetadataProvider : IAboutMetadataProvider
             body = $"{body}\n\n{NoticesUnavailableMessage}";
         }
 
-        var diagnostics = new StringBuilder()
-            .AppendLine("MarkUpViewMini diagnostics")
-            .AppendLine($"Application version: {version}")
-            .AppendLine($"Framework: {RuntimeInformation.FrameworkDescription}")
-            .AppendLine($"Runtime: {Environment.Version}")
-            .AppendLine($"OS: {RuntimeInformation.OSDescription}")
-            .AppendLine($"Process architecture: {RuntimeInformation.ProcessArchitecture}")
-            .AppendLine($"OS architecture: {RuntimeInformation.OSArchitecture}");
-        if (noticesAvailable)
+        var highlightedLibraries = notices
+            .Where(static item => HighlightedLibraryNames.Contains(item.Name))
+            .GroupBy(static item => item.Name, StringComparer.Ordinal)
+            .Select(static group => group
+                .OrderByDescending(static item => Version.TryParse(item.Version, out var parsed) ? parsed : new Version())
+                .First())
+            .OrderBy(static item => item.Name, StringComparer.Ordinal)
+            .ToArray();
+        if (highlightedLibraries.Length > 0)
         {
-            diagnostics.AppendLine("Runtime components:");
-            foreach (var notice in notices.OrderBy(static item => item.Name, StringComparer.Ordinal)
-                         .ThenBy(static item => item.Version, StringComparer.Ordinal))
-            {
-                diagnostics.AppendLine($"- {notice.Name} {notice.Version} ({notice.LicenseIdentifier})");
-            }
-        }
-        else
-        {
-            diagnostics.AppendLine(NoticesUnavailableMessage);
+            var libraryLines = string.Join(
+                '\n',
+                highlightedLibraries.Select(static item => $"- {item.Name} {item.Version}"));
+            body = $"{body}\n\n주요 구성 요소:\n{libraryLines}";
         }
 
         return new AboutDialogContent(
             AboutDialogKind.Version,
             "버전 정보",
             body,
-            notices,
             [],
-            diagnostics.ToString().TrimEnd());
+            []);
     }
 
     private AboutDialogContent BuildThirdPartyContent()
     {
         var notices = ReadRuntimeNotices(out var noticesAvailable);
+        var ordered = notices
+            .OrderBy(static item => item.Name, StringComparer.Ordinal)
+            .ThenBy(static item => item.Version, StringComparer.Ordinal)
+            .ToArray();
         return new AboutDialogContent(
             AboutDialogKind.ThirdPartyLicenses,
             "타사 라이선스",
             noticesAvailable ? "이 앱에 포함된 런타임 구성 요소의 고지입니다." : NoticesUnavailableMessage,
-            notices,
-            [],
-            string.Empty);
+            ordered,
+            []);
     }
 
     private AboutDialogContent BuildApplicationLicenseContent()
@@ -138,8 +144,7 @@ internal sealed class AboutMetadataProvider : IAboutMetadataProvider
                     new Uri("https://ministool.com/"),
                     new Uri("https://mdvm.ministool.com/"),
                     new Uri("https://github.com/minidice/markupviewmini"),
-                ],
-                string.Empty);
+                ]);
         }
         catch (IOException)
         {
@@ -217,6 +222,5 @@ internal sealed class AboutMetadataProvider : IAboutMetadataProvider
         "앱 라이선스",
         LicenseUnavailableMessage,
         [],
-        [],
-        string.Empty);
+        []);
 }

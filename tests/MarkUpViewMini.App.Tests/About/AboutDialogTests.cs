@@ -1,10 +1,8 @@
 using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Automation;
-using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
 using MarkUpViewMini.App.About;
 
 namespace MarkUpViewMini.App.Tests.About;
@@ -85,7 +83,7 @@ public sealed class AboutDialogTests
     }
 
     [Fact]
-    public void Dialog_renders_each_component_notice_in_a_selectable_accessible_read_only_wrapping_control_on_sta()
+    public void Dialog_renders_each_component_notice_as_readable_text_in_the_single_scrolling_document_on_sta()
     {
         RunOnSta(() =>
         {
@@ -94,28 +92,16 @@ public sealed class AboutDialogTests
             try
             {
                 dialog.Show();
-                var componentIndex = content.Components
-                    .Select(static (item, index) => (item, index))
-                    .Single(static pair => pair.item.Name == "Microsoft.Web.WebView2")
-                    .index;
-                dialog.ComponentsList.ScrollIntoView(content.Components[componentIndex]);
-                dialog.ComponentsList.UpdateLayout();
-                var componentItem = Assert.IsType<ListBoxItem>(
-                    dialog.ComponentsList.ItemContainerGenerator.ContainerFromIndex(componentIndex));
-                var textBoxes = FindVisualDescendants<TextBox>(componentItem).ToArray();
-                Assert.Equal(2, textBoxes.Length);
-                var metadata = textBoxes[0];
-                var notice = textBoxes[1];
+                var webView2 = Assert.Single(content.Components, static item => item.Name == "Microsoft.Web.WebView2");
+                var renderedText = ReadDocumentText(dialog.BodyDocument);
 
-                Assert.True(metadata.IsReadOnly);
-                Assert.Contains("Microsoft.Web.WebView2", metadata.Text, StringComparison.Ordinal);
-                Assert.Contains("1.0.2903.40", metadata.Text, StringComparison.Ordinal);
-                Assert.Contains("https://", metadata.Text, StringComparison.Ordinal);
-                Assert.True(notice.IsReadOnly);
-                Assert.Equal(TextWrapping.Wrap, notice.TextWrapping);
-                Assert.Equal(
-                    "타사 구성 요소 고지: Microsoft.Web.WebView2",
-                    AutomationProperties.GetName(notice));
+                Assert.Contains(content.Body, renderedText, StringComparison.Ordinal);
+                Assert.Contains(
+                    $"{webView2.Name} {webView2.Version} — {webView2.LicenseIdentifier}",
+                    renderedText,
+                    StringComparison.Ordinal);
+                Assert.Contains(webView2.SourceUrl, renderedText, StringComparison.Ordinal);
+                Assert.Contains(webView2.NoticeText, renderedText, StringComparison.Ordinal);
             }
             finally
             {
@@ -125,7 +111,7 @@ public sealed class AboutDialogTests
     }
 
     [Fact]
-    public void Production_version_dialog_enables_copy_and_places_initial_focus_on_close_on_sta()
+    public void Production_version_dialog_places_initial_focus_on_close_on_sta()
     {
         RunOnSta(() =>
         {
@@ -136,9 +122,6 @@ public sealed class AboutDialogTests
                 dialog.Show();
                 dialog.Dispatcher.Invoke(() => { });
 
-                Assert.True(dialog.CopyDiagnosticsButton.IsEnabled);
-                dialog.CopyDiagnostics();
-                Assert.Equal(content.DiagnosticsText, Clipboard.GetText());
                 Assert.Same(dialog.CloseButton, FocusManager.GetFocusedElement(dialog));
             }
             finally
@@ -149,16 +132,14 @@ public sealed class AboutDialogTests
     }
 
     [Fact]
-    public void Dialog_copies_diagnostics_and_closes_when_escape_is_pressed_on_sta()
+    public void Dialog_closes_when_escape_is_pressed_on_sta()
     {
         RunOnSta(() =>
         {
-            var content = ApplicationLicenseContent() with { DiagnosticsText = "diagnostic value" };
-            var dialog = new AboutDialog(content, new FailingLinkLauncher());
+            var dialog = new AboutDialog(ApplicationLicenseContent(), new FailingLinkLauncher());
             try
             {
                 dialog.Show();
-                dialog.CopyDiagnostics();
                 dialog.RaiseEvent(new KeyEventArgs(
                     Keyboard.PrimaryDevice,
                     PresentationSource.FromVisual(dialog),
@@ -168,7 +149,6 @@ public sealed class AboutDialogTests
                     RoutedEvent = Keyboard.PreviewKeyDownEvent,
                 });
 
-                Assert.Equal("diagnostic value", Clipboard.GetText());
                 Assert.False(dialog.IsVisible);
             }
             finally
@@ -183,24 +163,6 @@ public sealed class AboutDialogTests
 
     private static AboutDialogContent ApplicationLicenseContent() =>
         new AboutMetadataProvider().GetContent(AboutDialogKind.ApplicationLicense);
-
-    private static IEnumerable<T> FindVisualDescendants<T>(DependencyObject root)
-        where T : DependencyObject
-    {
-        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
-        {
-            var child = VisualTreeHelper.GetChild(root, index);
-            if (child is T match)
-            {
-                yield return match;
-            }
-
-            foreach (var descendant in FindVisualDescendants<T>(child))
-            {
-                yield return descendant;
-            }
-        }
-    }
 
     private static string ReadDocumentText(FlowDocument document) =>
         new TextRange(document.ContentStart, document.ContentEnd)

@@ -11,7 +11,6 @@ internal partial class AboutDialog : Window
 {
     private const string DefaultLinkOpenFailureMessage = "링크를 열 수 없습니다.";
     private readonly IAboutLinkLauncher launcher;
-    private readonly string diagnosticsText;
 
     internal AboutDialog(AboutDialogContent content, IAboutLinkLauncher launcher)
     {
@@ -22,12 +21,9 @@ internal partial class AboutDialog : Window
         BodyDocument.FontFamily = FontFamily;
         BodyDocument.FontSize = FontSize;
         this.launcher = launcher;
-        diagnosticsText = content.DiagnosticsText;
         Title = content.Title;
         AutomationProperties.SetName(this, content.Title);
         RenderBody(content);
-        ComponentsList.ItemsSource = content.Components;
-        CopyDiagnosticsButton.IsEnabled = !string.IsNullOrWhiteSpace(diagnosticsText);
     }
 
     internal void OpenLink(Uri uri)
@@ -42,8 +38,6 @@ internal partial class AboutDialog : Window
             : errorMessage;
         ErrorText.Visibility = Visibility.Visible;
     }
-
-    internal void CopyDiagnostics() => Clipboard.SetText(diagnosticsText);
 
     private void RenderBody(AboutDialogContent content)
     {
@@ -71,6 +65,23 @@ internal partial class AboutDialog : Window
 
         paragraph.Inlines.Add(new Run(content.Body[cursor..]));
         BodyDocument.Blocks.Add(paragraph);
+
+        foreach (var component in content.Components)
+        {
+            BodyDocument.Blocks.Add(CreateComponentParagraph(component));
+        }
+    }
+
+    private static Paragraph CreateComponentParagraph(RuntimeComponentNotice component)
+    {
+        var paragraph = new Paragraph { Margin = new Thickness(0, 16, 0, 0) };
+        paragraph.Inlines.Add(new Bold(new Run($"{component.Name} {component.Version} — {component.LicenseIdentifier}")));
+        paragraph.Inlines.Add(new LineBreak());
+        paragraph.Inlines.Add(new Run(component.SourceUrl));
+        paragraph.Inlines.Add(new LineBreak());
+        paragraph.Inlines.Add(new LineBreak());
+        paragraph.Inlines.Add(new Run(component.NoticeText));
+        return paragraph;
     }
 
     private static string? FindLinkDisplayText(string body, Uri link, int startIndex)
@@ -102,8 +113,6 @@ internal partial class AboutDialog : Window
         e.Handled = true;
         OpenLink(e.Uri);
     }
-
-    private void CopyDiagnostics_Click(object sender, RoutedEventArgs e) => CopyDiagnostics();
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
 

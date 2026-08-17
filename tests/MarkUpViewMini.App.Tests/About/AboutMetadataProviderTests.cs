@@ -22,18 +22,49 @@ public sealed class AboutMetadataProviderTests
     }
 
     [Fact]
-    public void Version_content_reports_current_dotnet_framework_and_only_runtime_notices()
+    public void Version_content_reports_current_dotnet_framework_and_keeps_the_component_list_out_of_the_summary()
     {
         var content = CreateProvider().GetContent(AboutDialogKind.Version);
 
         Assert.Contains(RuntimeInformation.FrameworkDescription, content.Body, StringComparison.Ordinal);
         Assert.Contains(Environment.Version.ToString(), content.Body, StringComparison.Ordinal);
-        Assert.False(string.IsNullOrWhiteSpace(content.DiagnosticsText));
-        Assert.Contains(RuntimeInformation.OSDescription, content.DiagnosticsText, StringComparison.Ordinal);
-        Assert.Contains(RuntimeInformation.ProcessArchitecture.ToString(), content.DiagnosticsText, StringComparison.Ordinal);
-        Assert.Contains("Microsoft.Web.WebView2", content.DiagnosticsText, StringComparison.Ordinal);
-        Assert.Contains(content.Components, item => item.Name == "Microsoft.Web.WebView2");
-        Assert.DoesNotContain(content.Components, item => item.Name.Contains("xunit", StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(content.Components);
+    }
+
+    [Fact]
+    public void Version_content_lists_only_the_directly_used_headline_libraries_by_name_and_version()
+    {
+        var content = CreateProvider().GetContent(AboutDialogKind.Version);
+        var notices = CreateProvider().GetContent(AboutDialogKind.ThirdPartyLicenses).Components;
+
+        string[] headlineNames =
+        [
+            "mermaid",
+            "codemirror",
+            "katex",
+            "dompurify",
+            "highlight.js",
+            "markdown-it",
+            "Microsoft.Web.WebView2",
+        ];
+        Assert.All(headlineNames, name =>
+        {
+            // Some headline names (e.g. "katex") appear twice in the raw notices: once as this
+            // app's direct dependency and once bundled inside another package (mermaid ships its
+            // own katex copy). The version summary should surface the higher, directly-used one.
+            var notice = notices
+                .Where(item => item.Name == name)
+                .OrderByDescending(item => Version.TryParse(item.Version, out var parsed) ? parsed : new Version())
+                .First();
+            Assert.Contains($"{notice.Name} {notice.Version}", content.Body, StringComparison.Ordinal);
+        });
+
+        // Transitive-only packages (pulled in by mermaid/codemirror/etc., not something the app
+        // depends on directly) must stay off the version summary to avoid recreating the
+        // duplicate wall of text the third-party licenses screen already shows.
+        Assert.DoesNotContain("@mermaid-js/parser", content.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("d3 ", content.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("markdown-it-anchor", content.Body, StringComparison.Ordinal);
     }
 
     [Fact]

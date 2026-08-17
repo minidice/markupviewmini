@@ -19,8 +19,7 @@ internal sealed record AboutDialogContent(
     string Title,
     string Body,
     IReadOnlyList<RuntimeComponentNotice> Components,
-    IReadOnlyList<Uri> ClickableLinks,
-    string DiagnosticsText);
+    IReadOnlyList<Uri> ClickableLinks);
 
 internal interface IAboutMetadataProvider
 {

@@ -50,17 +50,21 @@ public sealed class AboutDialogTests
                 https://github.com/minidice/markupviewmini
                 """;
 
+            // The raw string literal's line endings follow this source file's own (CRLF on
+            // Windows checkouts), while ReadDocumentText normalizes rendered text to LF.
+            // Normalize here too, so the comparison depends on content, not checkout settings.
+            var normalizedApprovedBlock = approvedBlock.Replace("\r\n", "\n", StringComparison.Ordinal);
             var renderedText = ReadDocumentText(dialog.BodyDocument);
-            var approvedBlockIndex = renderedText.IndexOf(approvedBlock, StringComparison.Ordinal);
+            var approvedBlockIndex = renderedText.IndexOf(normalizedApprovedBlock, StringComparison.Ordinal);
             Assert.True(approvedBlockIndex >= 0, "The rendered license body omitted or changed the approved English block.");
 
             var mitHeadingIndex = renderedText.IndexOf(
                 "MIT License",
-                approvedBlockIndex + approvedBlock.Length,
+                approvedBlockIndex + normalizedApprovedBlock.Length,
                 StringComparison.Ordinal);
 
             Assert.True(
-                mitHeadingIndex > approvedBlockIndex + approvedBlock.Length,
+                mitHeadingIndex > approvedBlockIndex + normalizedApprovedBlock.Length,
                 "The canonical MIT heading must follow the approved English block and its textual URLs.");
 
             var hyperlinks = dialog.BodyDocument.Blocks

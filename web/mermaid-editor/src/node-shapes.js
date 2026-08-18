@@ -1,5 +1,1 @@
-export const CLASSIC_SHAPES = [
-  { id: "rect", open: "[", close: "]" },
-  { id: "round", open: "(", close: ")" },
-  { id: "diamond", open: "{", close: "}" },
-];
+export { CLASSIC_SHAPES, CLASSIC_SHAPE_BY_ID } from "@markup-view-mini/mermaid-safe/node-shapes";

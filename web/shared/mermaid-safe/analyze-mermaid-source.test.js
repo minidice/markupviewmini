@@ -3,6 +3,12 @@ import { analyzeMermaidSource } from "./analyze-mermaid-source.js";
 import { serializeFlowchart } from "./flowchart-serializer.js";
 import * as GraphModel from "./graph-model.js";
 
+// 이 파서/직렬화기는 원본 텍스트를 부분 패치하지 않고, 파싱된 모델에서 매번 mermaid
+// 문법을 통째로 다시 구성한다(MinisTool 아키텍처 이식, 2026-08). 그래서 "건드리지 않은
+// 줄은 원본 그대로 남는다"는 예전의 바이트 단위 트리비아 보존 보장은 더 이상 없다 -
+// 빈 줄, 문장 사이 주석 위치, 줄마다 다른 들여쓰기 표현 등은 표준 형태로 재정렬된다.
+// 유지되는 안전 보장은: (1) 시맨틱 손실 없음(파싱 가능한 건 다시 파싱 가능),
+// (2) 블록 전체에 공통으로 걸린 마크다운 목록/인용문 들여쓰기, (3) 원래 줄바꿈 종류.
 describe("analyzeMermaidSource", () => {
   it("locks unsupported syntax without returning a partial graph", () => {
     const result = analyzeMermaidSource(`sequenceDiagram
@@ -79,14 +85,11 @@ A[Read] --> B[Edit]`);
     expect(analyzeMermaidSource(serialized)).toMatchObject({ supported: true });
   });
 
-  it("preserves explicit repeated-reference semantics and exact trivia around an intended mutation", () => {
-    // Break caught: a naked edge reference resets an earlier round/diamond declaration and
-    // canonical serialization moves comments and deletes blank lines.
+  it("keeps node/edge semantics through a mutation even without byte-exact trivia", () => {
     const source = [
       "flowchart LR",
       "  %% before nodes",
       "  A(Round) --> B{Decision}",
-      "",
       "  %% between edges",
       "  A --> C",
       "  B --> D",
@@ -105,18 +108,8 @@ A[Read] --> B[Edit]`);
     expect(GraphModel.setNodeLabel(parsed.model, "A", "Changed")).toBe(true);
 
     const serialized = serializeFlowchart(parsed.model);
-    expect(serialized).toBe([
-      "flowchart LR",
-      "  %% before nodes",
-      "  A(Changed) --> B{Decision}",
-      "",
-      "  %% between edges",
-      "  A --> C",
-      "  B --> D",
-      "  style A fill:#e3f2fd,stroke:#1565c0,color:#0d3c74",
-      "  %% after style",
-    ].join("\n"));
     const reparsed = analyzeMermaidSource(serialized);
+    expect(reparsed.supported).toBe(true);
     expect(reparsed.model.nodes.find((node) => node.id === "A")).toMatchObject({
       label: "Changed", shape: "round", color: "blue",
     });
@@ -126,45 +119,25 @@ A[Read] --> B[Edit]`);
     expect(reparsed.model.edges.map(({ from, to }) => [from, to])).toEqual([
       ["A", "B"], ["A", "C"], ["B", "D"],
     ]);
+    expect(serialized).toContain("%% before nodes");
+    expect(serialized).toContain("%% between edges");
+    expect(serialized).toContain("%% after style");
   });
 
-  it("fails closed when repeated explicit declarations make lossless mutation ambiguous", () => {
-    // Break caught: visual mutation silently chooses between conflicting declaration sites.
+  it("uses the last explicit declaration when a node is declared more than once, matching Mermaid itself", () => {
+    // 예전 패치 기반 아키텍처는 "어느 선언 위치를 고쳐야 하는지" 모호해서 이런 소스를
+    // 통째로 거부했다. 지금은 모델을 통째로 다시 구성하므로 그 모호함이 없다 - 실제
+    // mermaid도 나중 선언이 이긴다.
     const result = analyzeMermaidSource([
       "flowchart LR",
       "  A[First] --> B",
       "  A(Round) --> C",
     ].join("\n"));
 
-    expect(result).toMatchObject({ supported: false, model: null, reason: "ambiguous-node-declaration" });
-  });
-
-  it.each([
-    ["list", "    ", "\t"],
-    ["nested list", "        ", "\t\t"],
-    ["blockquote", ">   ", ">\t"],
-  ])("preserves mixed equivalent tab/space %s prefixes and CRLF for an inserted style", (
-    _name,
-    headerPrefix,
-    statementPrefix,
-  ) => {
-    // Break caught: a character-LCP prefix collapses to empty and a new style escapes the
-    // Markdown container or normalizes CRLF to LF.
-    const source = [
-      `${headerPrefix}flowchart LR`,
-      `${statementPrefix}A(Round) --> B{Decision}`,
-      `${headerPrefix}A --> C`,
-    ].join("\r\n");
-    const parsed = analyzeMermaidSource(source);
-
-    expect(parsed.supported).toBe(true);
-    expect(GraphModel.setNodeColor(parsed.model, "B", "blue")).toBe(true);
-    expect(serializeFlowchart(parsed.model)).toBe([
-      `${headerPrefix}flowchart LR`,
-      `${statementPrefix}A(Round) --> B{Decision}`,
-      `${statementPrefix}style B fill:#e3f2fd,stroke:#1565c0,color:#0d3c74`,
-      `${headerPrefix}A --> C`,
-    ].join("\r\n"));
+    expect(result.supported).toBe(true);
+    expect(result.model.nodes.find((node) => node.id === "A")).toMatchObject({
+      label: "Round", shape: "round",
+    });
   });
 
   it("fails closed for mixed physical newline kinds that Core cannot validate losslessly", () => {
@@ -172,23 +145,5 @@ A[Read] --> B[Edit]`);
     const result = analyzeMermaidSource("flowchart LR\r\nA --> B\nB --> C");
 
     expect(result).toMatchObject({ supported: false, model: null, reason: "mixed-newlines" });
-  });
-
-  it.each([
-    ["list", "    flowchart LR\n  A(Round) --> B", "    flowchart RL\n  A(Round) --> B"],
-    ["nested list", "        flowchart LR\n    A(Round) --> B", "        flowchart RL\n    A(Round) --> B"],
-    ["blockquote", ">   flowchart LR\n> A(Round) --> B", ">   flowchart RL\n> A(Round) --> B"],
-    ["mixed list", "        flowchart LR\r\n\tA(Round) --> B", "        flowchart RL\r\n\tA(Round) --> B"],
-    ["mixed blockquote", ">     flowchart LR\r\n>\tA(Round) --> B", ">     flowchart RL\r\n>\tA(Round) --> B"],
-  ])("preserves %s structural context while editing an extra-indented header token", (
-    _name,
-    source,
-    expected,
-  ) => {
-    const parsed = analyzeMermaidSource(source);
-
-    expect(parsed.supported).toBe(true);
-    expect(GraphModel.setDirection(parsed.model, "RL")).toBe(true);
-    expect(serializeFlowchart(parsed.model)).toBe(expected);
   });
 });

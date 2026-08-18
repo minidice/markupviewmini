@@ -16,8 +16,7 @@ const LIMITED_MODE_REASON_MESSAGES = {
   "mixed-newlines": "줄바꿈 형식이 섞여 있어 텍스트로만 편집할 수 있습니다.",
   "unsupported-syntax": "이 구문은 시각 편집기에서 지원하지 않아 텍스트로만 편집할 수 있습니다.",
   "unsupported-colour": "지원하지 않는 색상 지정이라 텍스트로만 편집할 수 있습니다.",
-  "ambiguous-node-declaration": "같은 노드가 두 번 선언되어 텍스트로만 편집할 수 있습니다.",
-  "ambiguous-node-style": "같은 노드에 스타일이 두 번 지정되어 텍스트로만 편집할 수 있습니다.",
+  "unclosed-subgraph": "닫히지 않은 subgraph가 있어 텍스트로만 편집할 수 있습니다.",
   "render-failed": "다이어그램을 렌더링하지 못해 텍스트로만 편집할 수 있습니다.",
 };
 

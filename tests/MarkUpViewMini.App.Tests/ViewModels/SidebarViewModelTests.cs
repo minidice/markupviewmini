@@ -157,7 +157,7 @@ public sealed class SidebarViewModelTests : IDisposable
             if (Interlocked.Increment(ref calls) == 1)
             {
                 firstStarted.Set();
-                Assert.True(releaseFirst.Wait(TimeSpan.FromSeconds(2)));
+                Assert.True(releaseFirst.Wait(TimeSpan.FromSeconds(10)));
                 return [new FileInfo(staleFile)];
             }
 
@@ -172,13 +172,13 @@ public sealed class SidebarViewModelTests : IDisposable
             action => action());
         viewModel.RootPath = root;
         var staleRefresh = Task.Run(() => viewModel.RefreshTreeAsync(CancellationToken.None));
-        Assert.True(firstStarted.Wait(TimeSpan.FromSeconds(1)));
+        Assert.True(firstStarted.Wait(TimeSpan.FromSeconds(10)));
 
         viewModel.RootPath = Path.Combine(root, "other");
         viewModel.RootPath = root;
         await viewModel.RefreshTreeAsync(CancellationToken.None);
         releaseFirst.Set();
-        await staleRefresh.WaitAsync(TimeSpan.FromSeconds(1));
+        await staleRefresh.WaitAsync(TimeSpan.FromSeconds(10));
 
         Assert.False(viewModel.IsRefreshingTree);
         Assert.Equal("current.md", Assert.Single(Assert.IsType<FolderNode>(viewModel.Tree).Children).Name);

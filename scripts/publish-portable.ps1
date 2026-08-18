@@ -1,5 +1,7 @@
 [CmdletBinding()]
-param()
+param(
+    [switch] $FrameworkDependent
+)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -35,11 +37,13 @@ $repositoryRoot = Get-VerifiedPhysicalRoot -Root (Join-Path $PSScriptRoot '..')
 $artifactRoot = Assert-ControlledMutationPath `
     -Path (Join-Path $repositoryRoot 'artifacts') `
     -TrustedRoot $repositoryRoot
+$publishSubdirectory = if ($FrameworkDependent) { 'portable-fxdependent\MarkUpViewMini' } else { 'portable\MarkUpViewMini' }
+$zipFileName = if ($FrameworkDependent) { 'MarkUpViewMini-win-x64-fxdependent.zip' } else { 'MarkUpViewMini-win-x64.zip' }
 $publishDirectory = Assert-ControlledMutationPath `
-    -Path (Join-Path $artifactRoot 'portable\MarkUpViewMini') `
+    -Path (Join-Path $artifactRoot $publishSubdirectory) `
     -TrustedRoot $repositoryRoot
 $zipPath = Assert-ControlledMutationPath `
-    -Path (Join-Path $artifactRoot 'MarkUpViewMini-win-x64.zip') `
+    -Path (Join-Path $artifactRoot $zipFileName) `
     -TrustedRoot $repositoryRoot
 $documentNodeModules = Join-Path $repositoryRoot 'web\document-surface\node_modules'
 $documentDist = Join-Path $repositoryRoot 'web\document-surface\dist'
@@ -113,7 +117,8 @@ try {
         -Path $publishDirectory `
         -TrustedRoot $repositoryRoot `
         -RejectReparseDescendants | Out-Null
-    Invoke-CheckedNative dotnet @(
+    $publishArguments = [Collections.Generic.List[string]]::new()
+    $publishArguments.AddRange([string[]] @(
         'publish',
         '.\src\MarkUpViewMini.App',
         '-c',
@@ -121,14 +126,18 @@ try {
         '-r',
         'win-x64',
         '--self-contained',
-        'true',
-        '-p:PublishSingleFile=false',
-        '-p:PublishReadyToRun=true',
+        $(if ($FrameworkDependent) { 'false' } else { 'true' }),
+        '-p:PublishSingleFile=false'))
+    if (-not $FrameworkDependent) {
+        $publishArguments.Add('-p:PublishReadyToRun=true')
+    }
+    $publishArguments.AddRange([string[]] @(
         '-p:DistributionKind=Portable',
         "-p:SourceRevisionId=$sourceCommit",
         '-p:ContinuousIntegrationBuild=true',
         '-o',
-        $publishDirectory)
+        $publishDirectory))
+    Invoke-CheckedNative dotnet $publishArguments
     Invoke-CheckedNative node @(
         '.\scripts\generate-third-party-notices.mjs',
         '--check',

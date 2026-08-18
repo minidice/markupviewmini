@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using MarkUpViewMini.Core.Activation;
 using MarkUpViewMini.Core.Documents;
@@ -90,13 +91,26 @@ public partial class App : Application
     private bool shutdownPreparationInProgress;
     private long windowSetGeneration;
 
+    private const int AppModelErrorNoPackage = 15700;
+
+    [LibraryImport("kernel32.dll")]
+    private static partial int GetCurrentPackageFullName(ref uint packageFullNameLength, nint packageFullName);
+
+    private static bool IsRunningAsMsixPackage()
+    {
+        var length = 0u;
+        return GetCurrentPackageFullName(ref length, nint.Zero) != AppModelErrorNoPackage;
+    }
+
     private static IAppDataPaths SelectAppDataPaths()
     {
         var executableDirectory = Path.GetDirectoryName(Environment.ProcessPath) ??
             Path.GetFullPath(AppContext.BaseDirectory);
-        var kind = File.Exists(Path.Combine(executableDirectory, "portable.marker"))
-            ? AppDistributionKind.Portable
-            : AppDistributionKind.Installed;
+        var kind = IsRunningAsMsixPackage()
+            ? AppDistributionKind.Msix
+            : File.Exists(Path.Combine(executableDirectory, "portable.marker"))
+                ? AppDistributionKind.Portable
+                : AppDistributionKind.Installed;
         return AppDataPathSelector.Select(
             kind,
             executableDirectory,

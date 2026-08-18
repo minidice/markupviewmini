@@ -74,7 +74,12 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\AppIcon.ico" />
+  </ItemGroup>
 
   <Target Name="LoadDocumentSurfaceManifest"
           Condition="Exists('$(DocumentSurfaceDirectory)\dist\manifest.txt')">

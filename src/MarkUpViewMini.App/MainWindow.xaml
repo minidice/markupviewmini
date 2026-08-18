@@ -11,6 +11,7 @@
         xmlns:search="clr-namespace:MarkUpViewMini.Core.Search;assembly=MarkUpViewMini.Core"
         mc:Ignorable="d"
         Title="MarkUpViewMini"
+        Icon="Assets/AppIcon.ico"
         Height="760"
         Width="1180"
         MinHeight="480"

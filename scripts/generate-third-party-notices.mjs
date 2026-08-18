@@ -181,6 +181,8 @@ async function verifyPublishedDependencies(depsPath, configPath, notices) {
   const publishedLibraries = Object.entries(deps.libraries)
     .filter(([, metadata]) => metadata.type === "package" || metadata.type === "runtimepack")
     .map(([identity]) => identity);
+  const isSelfContained = Object.values(deps.libraries)
+    .some((metadata) => metadata.type === "runtimepack");
   for (const library of publishedLibraries) {
     const component = manualComponents.find(({ publishedLibraryPrefix }) =>
       publishedLibraryPrefix && library.startsWith(publishedLibraryPrefix));
@@ -191,6 +193,11 @@ async function verifyPublishedDependencies(depsPath, configPath, notices) {
     }
   }
   for (const component of manualComponents.filter(({ publishedLibraryPrefix }) => publishedLibraryPrefix)) {
+    if (!isSelfContained && component.publishedLibraryPrefix.startsWith("runtimepack.")) {
+      // Framework-dependent publishes rely on an installed shared runtime instead of bundling
+      // it, so the runtime's own notice has nothing to match in this deps.json.
+      continue;
+    }
     const expected = `${component.publishedLibraryPrefix}${component.version}`;
     if (!publishedLibraries.includes(expected)) {
       throw new Error(`Manual runtime notice does not match the published dependency closure: ${expected}`);

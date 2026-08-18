@@ -6,6 +6,8 @@
 **/dist/
 artifacts/
 publish/
+AppPackages/
+BundleArtifacts/
 data/
 .superpowers/
 .worktrees/

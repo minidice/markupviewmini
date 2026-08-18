@@ -9,6 +9,7 @@ publish/
 data/
 .superpowers/
 .worktrees/
+.omc/
 docs/
 *.user
 *.suo

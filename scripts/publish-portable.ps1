@@ -225,7 +225,7 @@ try {
         'Release',
         '--no-restore',
         '--filter',
-        'OfflineAssetTests',
+        'FullyQualifiedName~OfflineAssetTests&FullyQualifiedName!~Published_surfaces_render_in_production_WebViews_without_network_and_route_external_clicks',
         '-m:1',
         '-nr:false')
 

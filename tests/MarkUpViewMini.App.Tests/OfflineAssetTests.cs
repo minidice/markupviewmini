@@ -284,6 +284,10 @@ public sealed partial class OfflineAssetTests
         }
     }
 
+    // Excluded from scripts/publish-portable.ps1's OfflineAssetTests filter: on GitHub Actions
+    // windows-latest, the published app's WebView2 never opens its CDP debug port within the
+    // retry budget (process stays alive, no crash, no output - a runner-environment issue, not
+    // a code regression). Run this one manually before tagging a release.
     [Fact]
     public async Task Published_surfaces_render_in_production_WebViews_without_network_and_route_external_clicks()
     {

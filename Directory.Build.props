@@ -1,4 +1,24 @@
 <Project>
+
+  <!--
+    리포 전체 공통 속성. 버전은 여기 한 곳에서만 관리한다.
+
+    MarkUpViewMiniVersion     = 3파트 SemVer. 릴리스할 때 이 값만 올린다.
+    MarkUpViewMiniMsixVersion = MSIX Identity용 4파트. Microsoft Store는 revision(4번째)을
+                                반드시 0으로 요구하므로 항상 .0을 붙인다.
+
+    패키징 스크립트에서 값을 읽을 때:
+      dotnet msbuild src/MarkUpViewMini.App -getProperty:MarkUpViewMiniMsixVersion
+  -->
+  <PropertyGroup>
+    <MarkUpViewMiniVersion>1.0.0</MarkUpViewMiniVersion>
+    <MarkUpViewMiniMsixVersion>$(MarkUpViewMiniVersion).0</MarkUpViewMiniMsixVersion>
+
+    <Version>$(MarkUpViewMiniVersion)</Version>
+    <AssemblyVersion>$(MarkUpViewMiniMsixVersion)</AssemblyVersion>
+    <FileVersion>$(MarkUpViewMiniMsixVersion)</FileVersion>
+  </PropertyGroup>
+
   <PropertyGroup>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

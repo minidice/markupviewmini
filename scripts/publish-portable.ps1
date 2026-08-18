@@ -109,7 +109,7 @@ try {
         '1',
         [EnvironmentVariableTarget]::Process)
     Assert-RepositoryBuildMutationPaths -RepositoryRoot $repositoryRoot
-    dotnet test .\MarkUpViewMini.slnx -c Release -m:1 -nr:false
+    dotnet test .\MarkUpViewMini.slnx -c Release --settings .\test.runsettings -m:1 -nr:false
     if ($LASTEXITCODE -ne 0) { throw 'Release tests failed.' }
 
     Assert-RepositoryBuildMutationPaths -RepositoryRoot $repositoryRoot
@@ -224,6 +224,8 @@ try {
         '-c',
         'Release',
         '--no-restore',
+        '--settings',
+        '.\test.runsettings',
         '--filter',
         'OfflineAssetTests',
         '-m:1',

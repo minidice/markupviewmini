@@ -124,7 +124,11 @@ textarea[data-source] {
 .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px #1565c0; }
 
 .status { color: #a61b1b; min-height: 1.5rem; font-size: .8125rem; }
-.actions { display: flex; justify-content: flex-end; gap: .5rem; padding: 1rem; border-top: 1px solid #d1d5db; background: white; }
+/* The host window (MermaidEditDialog.xaml) draws its own Cancel/Confirm pair below this
+   page and wires Esc/Enter to them; its Confirm just clicks [data-confirm] via script. Two
+   visible button rows doing the same thing read as a bug, so this row stays in the DOM (the
+   host still needs it, and tests still click it) but is not shown. */
+.actions { display: none; }
 
 /* 좁은 화면에서는 세 열을 세로로 쌓는다. 소스 칸은 절대 숨기지 않는다 —
    파서가 못 다루는 다이어그램은 제한 모드로 열리고, 그때는 이 칸이 유일한

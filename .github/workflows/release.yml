@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            web/document-surface/package-lock.json
+            web/mermaid-editor/package-lock.json
+
+      # Runs the full Release test suite, publishes a self-contained win-x64
+      # build, and zips it. The script itself fails (non-zero exit) on any
+      # test or verification failure, which stops the job before release.
+      - name: Build and verify self-contained portable
+        shell: pwsh
+        run: ./scripts/publish-portable.ps1
+
+      - name: Build and verify framework-dependent portable
+        shell: pwsh
+        run: ./scripts/publish-portable.ps1 -FrameworkDependent
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            artifacts/MarkUpViewMini-win-x64.zip
+            artifacts/MarkUpViewMini-win-x64-fxdependent.zip

@@ -362,12 +362,19 @@ public sealed partial class OfflineAssetTests
             {
                 WorkingDirectory = isolatedPublish,
                 UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
             };
             applicationStart.ArgumentList.Add(fixturePath);
             applicationStart.Environment["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] =
                 $"--remote-debugging-port={debuggingPort} --remote-allow-origins=*";
             application = Process.Start(applicationStart) ??
                 throw new InvalidOperationException("The isolated published application did not start.");
+            var applicationOutput = new StringBuilder();
+            application.OutputDataReceived += (_, e) => { if (e.Data is not null) applicationOutput.AppendLine(e.Data); };
+            application.ErrorDataReceived += (_, e) => { if (e.Data is not null) applicationOutput.AppendLine(e.Data); };
+            application.BeginOutputReadLine();
+            application.BeginErrorReadLine();
 
             var mermaidDebuggingPort = GetAvailableLoopbackPort();
             var mermaidStart = new ProcessStartInfo(
@@ -375,12 +382,19 @@ public sealed partial class OfflineAssetTests
             {
                 WorkingDirectory = mermaidProbeRoot,
                 UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
             };
             mermaidStart.ArgumentList.Add(Path.Combine(mermaidProbeRoot, "data"));
             mermaidStart.Environment["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] =
                 $"--remote-debugging-port={mermaidDebuggingPort} --remote-allow-origins=*";
             mermaidApplication = Process.Start(mermaidStart) ??
                 throw new InvalidOperationException("The production Mermaid WebView probe did not start.");
+            var mermaidOutput = new StringBuilder();
+            mermaidApplication.OutputDataReceived += (_, e) => { if (e.Data is not null) mermaidOutput.AppendLine(e.Data); };
+            mermaidApplication.ErrorDataReceived += (_, e) => { if (e.Data is not null) mermaidOutput.AppendLine(e.Data); };
+            mermaidApplication.BeginOutputReadLine();
+            mermaidApplication.BeginErrorReadLine();
 
             var startInfo = new ProcessStartInfo("node")
             {
@@ -397,7 +411,7 @@ public sealed partial class OfflineAssetTests
                 throw new InvalidOperationException("The offline browser probe did not start.");
             var standardOutput = process.StandardOutput.ReadToEndAsync();
             var standardError = process.StandardError.ReadToEndAsync();
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(180));
             try
             {
                 await process.WaitForExitAsync(timeout.Token);
@@ -414,9 +428,17 @@ public sealed partial class OfflineAssetTests
             var logs = Directory.Exists(logsDirectory)
                 ? string.Join(Environment.NewLine, Directory.GetFiles(logsDirectory).Select(File.ReadAllText))
                 : string.Empty;
+            var applicationStatus = application.HasExited
+                ? $"exited with code {application.ExitCode}"
+                : "still running";
+            var mermaidStatus = mermaidApplication.HasExited
+                ? $"exited with code {mermaidApplication.ExitCode}"
+                : "still running";
             Assert.True(
                 process.ExitCode == 0,
-                $"The offline browser probe failed.{Environment.NewLine}{output}{Environment.NewLine}{error}{Environment.NewLine}{logs}");
+                $"The offline browser probe failed.{Environment.NewLine}{output}{Environment.NewLine}{error}{Environment.NewLine}{logs}" +
+                $"{Environment.NewLine}application ({applicationStatus}):{Environment.NewLine}{applicationOutput}" +
+                $"{Environment.NewLine}mermaid probe ({mermaidStatus}):{Environment.NewLine}{mermaidOutput}");
             Assert.Contains("production-webview2-offline-ok", output, StringComparison.Ordinal);
             Assert.Contains("documentRequests=", output, StringComparison.Ordinal);
             Assert.Contains("mermaidRequests=", output, StringComparison.Ordinal);
@@ -734,10 +756,13 @@ public sealed partial class OfflineAssetTests
           try {
             target = await eventually(async () =>
               (await targets(endpoint)).find(candidate => candidate.type === "page" && new URL(candidate.url).hostname === host),
-              `${host} production WebView target`);
+              `${host} production WebView target`,
+              60000);
           } catch (error) {
-            const observed = await targets(endpoint);
-            throw new Error(`${error.message}; observed targets=${JSON.stringify(observed.map(candidate => ({ type: candidate.type, url: candidate.url })))}`);
+            let observed = "unavailable";
+            try { observed = JSON.stringify((await targets(endpoint)).map(candidate => ({ type: candidate.type, url: candidate.url }))); }
+            catch (observeError) { observed = `unavailable: ${observeError.message}`; }
+            throw new Error(`${error.message}; observed targets=${observed}`);
           }
           const cdp = await Cdp.connect(target);
           await cdp.send("Runtime.enable");

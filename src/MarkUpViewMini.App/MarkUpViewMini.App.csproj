@@ -133,7 +133,7 @@
     <Copy SourceFiles="@(_DocumentSurfacePublishAsset)"
           DestinationFiles="@(_DocumentSurfacePublishOutput)"
           SkipUnchangedFiles="true" />
-    <Exec Command="node verify-dist.mjs copy &quot;$(DocumentSurfaceDirectory)\dist&quot; &quot;$(PublishDir)web\document-surface\dist&quot; &quot;$(DocumentSurfaceDirectory)\dist\manifest.txt&quot;"
+    <Exec Command="node verify-dist.mjs copy &quot;$(DocumentSurfaceDirectory)\dist&quot; &quot;$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(PublishDir)web\document-surface\dist'))&quot; &quot;$(DocumentSurfaceDirectory)\dist\manifest.txt&quot;"
           WorkingDirectory="$(DocumentSurfaceDirectory)" />
   </Target>
 

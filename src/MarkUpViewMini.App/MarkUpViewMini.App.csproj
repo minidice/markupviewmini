@@ -16,6 +16,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="..\..\web\shared\i18n\*.json">
+      <LogicalName>MarkUpViewMini.App.Localization.%(Filename).json</LogicalName>
+      <Visible>false</Visible>
+    </EmbeddedResource>
     <EmbeddedResource Include="About\Resources\runtime-notices.json" />
     <EmbeddedResource Include="About\Resources\app-license.txt" />
     <Content Include="..\..\LICENSE">

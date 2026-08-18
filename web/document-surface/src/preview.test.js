@@ -296,6 +296,62 @@ describe("markdown preview", () => {
     expect(rowTspan?.getAttribute("dominant-baseline")).toBe("central");
   });
 
+  it("nudges central-baseline text down to close the residual gap to the shape's true center", async () => {
+    // Break caught: even after anchoring to the central baseline, the rendered glyphs still sit
+    // measurably above a shape's geometric center for the fonts this renders with (measured in
+    // Chromium: ~0.83em regardless of shape size, for Korean + Latin fallback) - central-baseline
+    // centers on the font's central-baseline table, which isn't identical to the ink/line-box
+    // center for every font/script. Without this dy nudge every label reads slightly high.
+    const container = document.createElement("div");
+    const mermaidAdapter = {
+      async render() {
+        return {
+          svg: [
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 34">',
+            '<g class="node">',
+            '<rect x="-30" y="-17" width="60" height="34"></rect>',
+            '<text y="-10.1"><tspan class="row" x="0" y="-0.1em">시작</tspan></text>',
+            "</g>",
+            "</svg>",
+          ].join(""),
+        };
+      },
+    };
+
+    await renderPreview("~~~mermaid\nflowchart LR\nA --> B\n~~~", { container, mermaidAdapter });
+
+    const text = container.querySelector("text");
+    const rowTspan = container.querySelector('tspan[x="0"]');
+    expect(text?.getAttribute("dy")).toBe("0.83em");
+    expect(rowTspan?.getAttribute("dy")).toBe("0.83em");
+  });
+
+  it("does not override an existing dy when the label already carries dominant-baseline", async () => {
+    // The compensating nudge is only calibrated for the "central" baseline we force in; a
+    // label mermaid already annotates with its own baseline must be left untouched.
+    const container = document.createElement("div");
+    const mermaidAdapter = {
+      async render() {
+        return {
+          svg: [
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 34">',
+            '<g class="node">',
+            '<rect x="-30" y="-17" width="60" height="34"></rect>',
+            '<text dominant-baseline="middle" dy="0.2em" x="0">시작</text>',
+            "</g>",
+            "</svg>",
+          ].join(""),
+        };
+      },
+    };
+
+    await renderPreview("~~~mermaid\nflowchart LR\nA --> B\n~~~", { container, mermaidAdapter });
+
+    const text = container.querySelector("text");
+    expect(text?.getAttribute("dominant-baseline")).toBe("middle");
+    expect(text?.getAttribute("dy")).toBe("0.2em");
+  });
+
   it("never attaches renderer-controlled CSS to the live document head", async () => {
     const container = document.createElement("div");
     const attachedStyles = [];

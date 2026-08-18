@@ -9,6 +9,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using MarkUpViewMini.App.About;
 using MarkUpViewMini.App.Composition;
+using MarkUpViewMini.App.Localization;
 using MarkUpViewMini.App.ViewModels;
 using MarkUpViewMini.App.Web;
 using MarkUpViewMini.Core.Documents;
@@ -108,6 +109,24 @@ public partial class MainWindow : Window, ISessionWindow
                 }
             });
         WindowsIntegrationMenu.DataContext = WindowsIntegration;
+        LanguageSettings = new LanguageSettingsViewModel(
+            AppLanguages.CreateResolver(),
+            AppLanguages.SystemCode,
+            this.settings.Current.Language,
+            this.settings.UpdateLanguage);
+        LanguageMenu.DataContext = LanguageSettings;
+        // Every window and dialog shares one localisation source, so applying the resolved
+        // language here is what makes the choice take effect without a restart.
+        AppLocalization.Source.SetLanguage(LanguageSettings.ResolvedCode);
+        LanguageSettings.ResolvedLanguageChanged += (_, _) =>
+        {
+            AppLocalization.Source.SetLanguage(LanguageSettings.ResolvedCode);
+            // These menu items hold text produced in code rather than through a binding, so a
+            // language switch leaves them showing the previous language until they are rebuilt.
+            // Refreshing re-derives all of them through the path that already formats them.
+            _ = WindowsIntegration.RefreshAsync();
+            DocumentSurface.PostLanguage(AppLocalization.Source.CurrentCode);
+        };
         sessionState = new SessionWindowStateController(
             shell,
             File.Exists,
@@ -140,6 +159,9 @@ public partial class MainWindow : Window, ISessionWindow
     internal SidebarViewModel Sidebar => composition.Sidebar;
 
     public WindowsIntegrationSettingsViewModel WindowsIntegration { get; }
+
+    // Not "Language" - FrameworkElement already has a property by that name.
+    public LanguageSettingsViewModel LanguageSettings { get; }
 
     internal async Task OpenCommandLineTargetsAsync(
         IReadOnlyList<string> arguments,
@@ -431,10 +453,10 @@ public partial class MainWindow : Window, ISessionWindow
         }
 
         var menu = new ContextMenu { Placement = PlacementMode.MousePoint };
-        AddLinkMenuItem(menu, "기본 동작으로 열기", LinkOpenDisposition.Default, state.CanOpenDefault);
-        AddLinkMenuItem(menu, "MarkUpViewMini에서 열기", LinkOpenDisposition.Internal, state.CanOpenInternal);
-        AddLinkMenuItem(menu, "Windows 기본 앱에서 열기", LinkOpenDisposition.WindowsDefault, state.CanOpenWithWindows);
-        AddLinkMenuItem(menu, "새 탭에서 열기", LinkOpenDisposition.NewTab, state.CanOpenNewTab);
+        AddLinkMenuItem(menu, Strings.Get("link.openDefault"), LinkOpenDisposition.Default, state.CanOpenDefault);
+        AddLinkMenuItem(menu, Strings.Get("link.openInternal"), LinkOpenDisposition.Internal, state.CanOpenInternal);
+        AddLinkMenuItem(menu, Strings.Get("link.openWindowsDefault"), LinkOpenDisposition.WindowsDefault, state.CanOpenWithWindows);
+        AddLinkMenuItem(menu, Strings.Get("link.openNewTab"), LinkOpenDisposition.NewTab, state.CanOpenNewTab);
         menu.Closed += (_, _) => DocumentSurface.ContextMenu = null;
         DocumentSurface.ContextMenu = menu;
         menu.IsOpen = true;
@@ -908,17 +930,17 @@ public partial class MainWindow : Window, ISessionWindow
             var result = await shell.SaveActiveAsync(decision, lifetimeCancellation.Token);
             if (result is SaveResult.Conflict)
             {
-                shell.ShowEditingError("디스크의 파일이 변경되어 저장하지 않았습니다. 충돌을 먼저 해결하세요.");
+                shell.ShowEditingError(Strings.Get("editing.error.diskChanged"));
             }
         }
         catch (EncoderFallbackException)
         {
-            shell.ShowEditingError("현재 인코딩으로 저장할 수 없습니다. 다른 이름으로 저장을 사용하세요.");
+            shell.ShowEditingError(Strings.Get("editing.error.encodingUnsupported"));
         }
         catch (Exception exception) when (
             exception is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
-            shell.ShowEditingError("문서를 저장할 수 없습니다. 원본 파일은 변경되지 않았습니다.");
+            shell.ShowEditingError(Strings.Get("editing.error.saveFailed"));
         }
     }
 

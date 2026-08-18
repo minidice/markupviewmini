@@ -91,7 +91,7 @@ const SAFE_MERMAID_TAGS = [
 
 const SAFE_MERMAID_ATTRIBUTES = [
   "alignment-baseline", "aria-describedby", "aria-labelledby", "aria-roledescription", "class",
-  "clip-path", "cx", "cy", "d", "dominant-baseline", "fill", "fill-opacity", "font-family",
+  "clip-path", "cx", "cy", "d", "dominant-baseline", "dy", "fill", "fill-opacity", "font-family",
   "font-size", "font-style", "font-weight", "height", "id", "marker-end", "marker-mid",
   "marker-start", "markerHeight", "markerUnits", "markerWidth", "mask", "orient", "points",
   "preserveAspectRatio", "r", "refX", "refY", "role", "rx", "ry", "stroke",
@@ -285,6 +285,13 @@ function sanitizeMermaidSvg(svg, rootId) {
     // which font ends up rendering the text.
     if (!textElement.hasAttribute("dominant-baseline")) {
       textElement.setAttribute("dominant-baseline", "central");
+      // `dominant-baseline="central"` centers on the font's central-baseline table, which is
+      // still measurably off from the shape's true geometric center for the fonts this renders
+      // with (verified empirically, Chromium: Korean + Latin fallback) — the block sits about
+      // 0.83em too high regardless of shape size. This nudge is tuned for the single-line case
+      // (the common one); multi-line wrapped labels have their own extra per-row skew on top of
+      // this and are only partially corrected.
+      if (!textElement.hasAttribute("dy")) textElement.setAttribute("dy", "0.83em");
     }
   }
   return root.outerHTML;

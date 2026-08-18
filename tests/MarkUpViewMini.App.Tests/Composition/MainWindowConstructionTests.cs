@@ -1,3 +1,4 @@
+using MarkUpViewMini.App.Localization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -44,14 +45,25 @@ public sealed class MainWindowConstructionTests
                 var initialTabCount = shell.Tabs.Count;
                 var informationMenu = Assert.IsType<MenuItem>(window.FindName("InformationMenu"));
                 var rootMenu = Assert.IsType<Menu>(ItemsControl.ItemsControlFromItemContainer(informationMenu));
-                var settingsMenu = Assert.IsType<MenuItem>(window.FindName("WindowsIntegrationMenu"));
+                var settingsMenu = Assert.IsType<MenuItem>(window.FindName("SettingsMenu"));
                 var settingsIndex = rootMenu.Items.IndexOf(settingsMenu);
+                var windowsIntegrationMenu =
+                    Assert.IsType<MenuItem>(window.FindName("WindowsIntegrationMenu"));
+                var languageMenu = Assert.IsType<MenuItem>(window.FindName("LanguageMenu"));
                 var browser = GetDocumentBrowser(window);
 
-                Assert.Equal("정보", informationMenu.Header);
+                Assert.Equal(Strings.Get("menu.information"), informationMenu.Header);
                 Assert.Equal(settingsIndex + 1, rootMenu.Items.IndexOf(informationMenu));
+                // Windows integration is no longer a top-level menu - it is one group inside
+                // Settings, alongside the language choice.
+                Assert.DoesNotContain(windowsIntegrationMenu, rootMenu.Items.Cast<object>());
+                Assert.Contains(languageMenu, settingsMenu.Items.Cast<object>());
+                Assert.Contains(windowsIntegrationMenu, settingsMenu.Items.Cast<object>());
                 Assert.Equal(
-                    ["버전 정보", "타사 라이선스", "앱 라이선스"],
+                    [Strings.Get("menu.settings.language.korean"), "English", Strings.Get("menu.settings.language.system")],
+                    languageMenu.Items.OfType<MenuItem>().Select(static item => item.Header));
+                Assert.Equal(
+                    [Strings.Get("menu.information.version"), Strings.Get("menu.information.thirdParty"), Strings.Get("menu.information.appLicense")],
                     informationMenu.Items.Cast<MenuItem>().Select(static item => item.Header));
                 Assert.Null(browser.CoreWebView2);
                 Assert.False(File.Exists(paths.SettingsFile));
@@ -192,13 +204,13 @@ public sealed class MainWindowConstructionTests
                 var grid = Assert.IsType<Grid>(window.Content);
                 var headers = grid.Children.OfType<TextBlock>().ToArray();
                 Assert.Contains(headers, header =>
-                    header.Text == "복구본" && AutomationProperties.GetName(header) == "복구본");
+                    header.Text == Strings.Get("dialog.recovery.recovered") && AutomationProperties.GetName(header) == Strings.Get("dialog.recovery.recovered"));
                 Assert.Contains(headers, header =>
-                    header.Text == "현재 원본" && AutomationProperties.GetName(header) == "현재 원본");
+                    header.Text == Strings.Get("dialog.recovery.original") && AutomationProperties.GetName(header) == Strings.Get("dialog.recovery.original"));
                 var bodies = grid.Children.OfType<TextBox>().ToArray();
                 Assert.All(bodies, body => Assert.True(body.IsReadOnly));
-                Assert.Contains(bodies, body => AutomationProperties.GetName(body) == "복구본 내용 (읽기 전용)");
-                Assert.Contains(bodies, body => AutomationProperties.GetName(body) == "현재 원본 내용 (읽기 전용)");
+                Assert.Contains(bodies, body => AutomationProperties.GetName(body) == Strings.Get("dialog.recovery.recoveredBody"));
+                Assert.Contains(bodies, body => AutomationProperties.GetName(body) == Strings.Get("dialog.recovery.originalBody"));
                 Assert.Contains("guide.md", window.Title, StringComparison.Ordinal);
                 Assert.DoesNotContain(@"C:\private\secret", window.Title, StringComparison.OrdinalIgnoreCase);
                 Assert.DoesNotContain("RECOVERY-BODY-SECRET", window.Title, StringComparison.Ordinal);
@@ -326,13 +338,13 @@ public sealed class MainWindowConstructionTests
                 Assert.True(followRoot.IsChecked == false);
                 Assert.True(followRoot.IsEnabled);
                 Assert.False(MainWindowCommands.OpenFind.CanExecute(null, window));
-                Assert.Equal("뒤로", AutomationProperties.GetName(back));
-                Assert.Equal("앞으로", AutomationProperties.GetName(forward));
-                Assert.Equal("외부 파일 변경", AutomationProperties.GetName(conflictStatus));
+                Assert.Equal(Strings.Get("nav.back"), AutomationProperties.GetName(back));
+                Assert.Equal(Strings.Get("nav.forward"), AutomationProperties.GetName(forward));
+                Assert.Equal(Strings.Get("conflict.title"), AutomationProperties.GetName(conflictStatus));
                 Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(conflictStatus));
-                Assert.Equal("편집 및 저장 상태", AutomationProperties.GetName(editingStatus));
+                Assert.Equal(Strings.Get("status.editSave"), AutomationProperties.GetName(editingStatus));
                 Assert.Equal(AutomationLiveSetting.Assertive, AutomationProperties.GetLiveSetting(editingStatus));
-                Assert.Equal("읽기/편집 모드 전환", AutomationProperties.GetName(modeToggle));
+                Assert.Equal(Strings.Get("mode.toggleName"), AutomationProperties.GetName(modeToggle));
                 Assert.Contains(window.InputBindings.OfType<KeyBinding>(), binding =>
                     binding.Key == Key.F && binding.Modifiers == ModifierKeys.Control);
                 Assert.Contains(window.InputBindings.OfType<KeyBinding>(), binding =>
@@ -396,9 +408,9 @@ public sealed class MainWindowConstructionTests
                 Assert.Same(viewModel, menu.DataContext);
                 Assert.Equal(viewModel.StatusText, status.Header);
                 Assert.Equal(viewModel.GuidanceText, guidance.Header);
-                Assert.Equal("파일 형식 등록", register.Header);
-                Assert.Equal("등록 해제", unregister.Header);
-                Assert.Equal("Windows 기본 앱 설정 열기", openSettings.Header);
+                Assert.Equal(Strings.Get("menu.settings.registerFileTypes"), register.Header);
+                Assert.Equal(Strings.Get("menu.settings.unregisterFileTypes"), unregister.Header);
+                Assert.Equal(Strings.Get("menu.settings.openDefaultApps"), openSettings.Header);
                 Assert.Same(viewModel.RegisterCommand, register.Command);
                 Assert.Same(viewModel.UnregisterCommand, unregister.Command);
                 Assert.Same(viewModel.OpenDefaultAppsSettingsCommand, openSettings.Command);

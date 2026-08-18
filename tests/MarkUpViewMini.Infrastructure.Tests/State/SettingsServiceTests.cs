@@ -1,3 +1,4 @@
+using MarkUpViewMini.Core.Localization;
 using MarkUpViewMini.Core.Navigation;
 using MarkUpViewMini.Core.Search;
 using MarkUpViewMini.Core.Workspace;
@@ -22,6 +23,54 @@ public sealed class SettingsServiceTests
         Assert.Equal(new SearchOptionsV1(false, false, false), settings.SidebarSearchOptions);
         Assert.Equal(new FindOptionsV1(false, false, false), settings.FindOptions);
         Assert.Empty(settings.RecentDocuments);
+        Assert.Equal(LanguagePreference.SystemCode, settings.Language);
+    }
+
+    [Fact]
+    public async Task A_chosen_language_is_written_and_read_back()
+    {
+        var store = new ControlledStore();
+        var clock = new ManualClock();
+        await using var service = new SettingsService(store, clock, TimeSpan.FromMilliseconds(250));
+
+        service.UpdateLanguage("ko");
+        clock.ReleaseNextDelay();
+        await store.WaitForSaveCountAsync(1);
+
+        Assert.Equal("ko", service.Current.Language);
+        Assert.Equal(["ko"], store.Saved.Select(item => item.Language));
+    }
+
+    [Theory]
+    [InlineData("KO", "ko")]
+    [InlineData("  ko  ", "ko")]
+    [InlineData("kor", "")]
+    [InlineData("k", "")]
+    [InlineData(null, "")]
+    public async Task A_stored_language_code_is_reduced_to_the_persisted_shape(string? stored, string expected)
+    {
+        // Break caught: a hand-edited settings file pinning the app to a code we cannot parse.
+        // Only the *shape* is enforced here - whether we ship that language is decided against
+        // the catalogue at display time, so a code for a language added later still survives.
+        var store = new ControlledStore();
+        var clock = new ManualClock();
+        await using var service = new SettingsService(store, clock, TimeSpan.FromMinutes(1));
+
+        service.UpdateLanguage(stored);
+
+        Assert.Equal(expected, service.Current.Language);
+    }
+
+    [Fact]
+    public async Task A_language_we_have_not_shipped_yet_survives_being_stored()
+    {
+        var store = new ControlledStore();
+        var clock = new ManualClock();
+        await using var service = new SettingsService(store, clock, TimeSpan.FromMinutes(1));
+
+        service.UpdateLanguage("de");
+
+        Assert.Equal("de", service.Current.Language);
     }
 
     [Fact]

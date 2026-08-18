@@ -1,3 +1,4 @@
+using MarkUpViewMini.App.Localization;
 using System.Collections.ObjectModel;
 using System.Text;
 
@@ -13,7 +14,7 @@ public sealed class EncodingSelectionViewModel : ObservableObject
     {
         Options = new ReadOnlyCollection<EncodingChoice>(
         [
-            new("한국어 (Windows-949)", Encoding.GetEncoding(949)),
+            new(Strings.Get("encoding.korean949"), Encoding.GetEncoding(949)),
             new("Unicode (UTF-16 LE)", Encoding.Unicode),
             new("Unicode (UTF-16 BE)", Encoding.BigEndianUnicode),
             new("Unicode (UTF-8)", Encoding.UTF8),

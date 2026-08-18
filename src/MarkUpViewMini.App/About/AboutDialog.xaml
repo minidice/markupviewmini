@@ -1,8 +1,9 @@
 <Window x:Class="MarkUpViewMini.App.About.AboutDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:MarkUpViewMini.App.Localization"
         x:ClassModifier="internal"
-        Title="정보"
+        Title="{Binding [about.title], Source={x:Static loc:AppLocalization.Source}}"
         Width="620"
         Height="620"
         MinWidth="480"
@@ -31,7 +32,7 @@
                                   IsSelectionEnabled="True"
                                   IsToolBarVisible="False"
                                   VerticalScrollBarVisibility="Auto"
-                                  AutomationProperties.Name="정보 본문">
+                                  AutomationProperties.Name="{Binding [about.body], Source={x:Static loc:AppLocalization.Source}}">
             <FlowDocument x:Name="BodyDocument"
                           PagePadding="8" />
         </FlowDocumentScrollViewer>
@@ -42,8 +43,8 @@
                 Padding="16,5"
                 HorizontalAlignment="Right"
                 IsDefault="True"
-                Content="닫기"
+                Content="{Binding [about.close], Source={x:Static loc:AppLocalization.Source}}"
                 Click="Close_Click"
-                AutomationProperties.Name="닫기" />
+                AutomationProperties.Name="{Binding [about.close], Source={x:Static loc:AppLocalization.Source}}" />
     </Grid>
 </Window>

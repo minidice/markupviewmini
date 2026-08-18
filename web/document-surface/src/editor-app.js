@@ -5,6 +5,7 @@ import {
   isUuid,
   makeEnvelope,
 } from "./bridge.js";
+import { setLanguage } from "../../shared/i18n/index.js";
 import { buildOutline } from "./outline.js";
 import { createFindController } from "./find-controller.js";
 import { createEditFindController } from "./edit-find-controller.js";
@@ -440,6 +441,23 @@ export function mountDocumentSurface(root, webview = globalThis.chrome?.webview,
     }
 
     const modePayload = event.data?.payload;
+    /*
+     * The UI language is not a property of any document, so this message deliberately carries
+     * no requestId/tabId/revision to match - demanding them would make the surface ignore a
+     * language change whenever no document happened to be active.
+     */
+    if (event.data?.version === 1
+      && event.data.type === "document.setLanguage"
+      && typeof modePayload === "object"
+      && modePayload !== null
+      && !Array.isArray(modePayload)
+      && Object.keys(modePayload).length === 1
+      && typeof modePayload.language === "string") {
+      setLanguage(modePayload.language);
+      void renderSurface(state.text, state.revision);
+      return;
+    }
+
     if (event.data?.version === 1
       && event.data.type === "document.setEditorPreferences"
       && event.data.requestId === state.requestId

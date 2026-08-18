@@ -1,3 +1,5 @@
+using System.Text.Json;
+using MarkUpViewMini.App.Localization;
 using System.ComponentModel;
 using System.IO;
 using System.Windows;
@@ -157,7 +159,22 @@ public partial class MermaidEditDialog : Window, IMermaidEditDialog
         cancellationToken.ThrowIfCancellationRequested();
         core.Navigate(BootstrapUri.AbsoluteUri);
         await editorReady.Task.WaitAsync(ReadyTimeout, cancellationToken);
+        PostLocale();
     }
+
+    /// <summary>Tells the editor which language to label itself in.</summary>
+    /// <remarks>
+    /// Sent as its own message rather than folded into mermaid.open: that payload is validated
+    /// down to its exact key set on both sides, and the UI language is unrelated to the editing
+    /// session it describes. The dialog is modal, so one message at start-up is enough - the
+    /// language cannot change while it is open.
+    /// </remarks>
+    private void PostLocale() => PostMessage(JsonSerializer.Serialize(new
+    {
+        version = 1,
+        type = "mermaid.locale",
+        payload = new { language = AppLocalization.Source.CurrentCode },
+    }));
 
     private void SubscribeHandlers(CoreWebView2 core)
     {
@@ -234,7 +251,7 @@ public partial class MermaidEditDialog : Window, IMermaidEditDialog
         {
             conflictCandidate = result.Source;
             Browser.IsEnabled = false;
-            ConflictMessage.Text = "문서가 바뀌어 Mermaid 편집을 적용하지 않았습니다.";
+            ConflictMessage.Text = Strings.Get("mermaid.dialog.conflictMessage");
             ConflictPanel.Visibility = Visibility.Visible;
             return Task.CompletedTask;
         }
@@ -286,7 +303,10 @@ public partial class MermaidEditDialog : Window, IMermaidEditDialog
             return;
         }
 
-        ComparisonText.Text = $"[열었을 때]\r\n{request.Snapshot.Source}\r\n\r\n[편집한 내용]\r\n{conflictCandidate}";
+        ComparisonText.Text = Strings.Format(
+            "mermaid.dialog.comparison",
+            request.Snapshot.Source,
+            conflictCandidate);
         ComparisonText.Visibility = Visibility.Visible;
     }
 

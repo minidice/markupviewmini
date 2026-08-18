@@ -1,8 +1,9 @@
 import { GutterMarker, gutter, showPanel } from "@codemirror/view";
+import { t } from "../../shared/i18n/index.js";
 import { analyzeMermaidSource } from "@markup-view-mini/mermaid-safe/analyzer";
 import MarkdownIt from "markdown-it";
 
-const EDIT_LABEL = "시각 편집";
+const editLabel = () => t("preview.mermaidEdit");
 const fenceParser = new MarkdownIt();
 const actionDescriptions = new WeakMap();
 let descriptionSequence = 0;
@@ -10,18 +11,21 @@ let descriptionSequence = 0;
 // These no longer describe why the action is blocked - it never is. They describe why a
 // block opens in the editor's limited text-only mode (no visual canvas/inspector) instead of
 // the full visual mode. See createActionButton below.
-const LIMITED_MODE_REASON_MESSAGES = {
-  "flowchart-required": "flowchart 다이어그램만 시각 편집을 지원합니다. 텍스트로만 편집할 수 있습니다.",
-  "empty": "빈 다이어그램은 텍스트로만 편집할 수 있습니다.",
-  "mixed-newlines": "줄바꿈 형식이 섞여 있어 텍스트로만 편집할 수 있습니다.",
-  "unsupported-syntax": "이 구문은 시각 편집기에서 지원하지 않아 텍스트로만 편집할 수 있습니다.",
-  "unsupported-colour": "지원하지 않는 색상 지정이라 텍스트로만 편집할 수 있습니다.",
-  "unclosed-subgraph": "닫히지 않은 subgraph가 있어 텍스트로만 편집할 수 있습니다.",
-  "render-failed": "다이어그램을 렌더링하지 못해 텍스트로만 편집할 수 있습니다.",
+// Reason codes come from the shared parser; naming them for a human is a UI concern, so the
+// text lives in the catalogue and is looked up at render time - that is what lets a language
+// switch relabel buttons that are already on screen.
+const LIMITED_MODE_REASON_KEYS = {
+  "flowchart-required": "preview.limited.flowchartRequired",
+  "empty": "preview.limited.empty",
+  "mixed-newlines": "preview.limited.mixedNewlines",
+  "unsupported-syntax": "preview.limited.unsupportedSyntax",
+  "unsupported-colour": "preview.limited.unsupportedColour",
+  "unclosed-subgraph": "preview.limited.unclosedSubgraph",
+  "render-failed": "preview.limited.renderFailed",
 };
 
 export function describeLimitedModeReason(code) {
-  return LIMITED_MODE_REASON_MESSAGES[code] ?? "이 다이어그램은 텍스트로만 편집할 수 있습니다.";
+  return t(LIMITED_MODE_REASON_KEYS[code] ?? "preview.limited.generic");
 }
 
 function sourceLines(source) {
@@ -114,10 +118,10 @@ function createActionButton(block, onRequested, actionOrigin, actionSurface, lim
   button.dataset.mermaidActionOrigin = actionOrigin;
   button.dataset.mermaidActionSurface = actionSurface;
   button.dataset.mermaidOpeningLine = String(block.openingLine);
-  button.textContent = EDIT_LABEL;
+  button.textContent = editLabel();
   const accessibleLabel = actionSurface === "panel"
-    ? `${EDIT_LABEL}, Mermaid block at line ${block.openingLine}`
-    : EDIT_LABEL;
+    ? `${editLabel()}, Mermaid block at line ${block.openingLine}`
+    : editLabel();
   if (action.enabled) {
     button.setAttribute("aria-label", accessibleLabel);
   } else {
@@ -151,7 +155,7 @@ function createGutterProxy(block) {
   button.className = "mermaid-edit-action";
   button.dataset.mermaidActionSurface = "gutter";
   button.dataset.mermaidOpeningLine = String(block.openingLine);
-  button.textContent = EDIT_LABEL;
+  button.textContent = editLabel();
   button.tabIndex = -1;
   button.setAttribute("aria-hidden", "true");
   button.addEventListener("click", () => {

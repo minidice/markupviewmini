@@ -1,3 +1,4 @@
+using MarkUpViewMini.Core.Localization;
 using MarkUpViewMini.Core.Navigation;
 using MarkUpViewMini.Core.Search;
 using MarkUpViewMini.Core.Workspace;
@@ -107,6 +108,10 @@ public sealed class SettingsService : IAsyncDisposable
 
     public void UpdateSidebarWidth(double width) =>
         Update(snapshot => snapshot with { SidebarWidth = width });
+
+    /// <summary>Stores the UI language choice; an empty code means "follow the system".</summary>
+    public void UpdateLanguage(string? languageCode) =>
+        Update(snapshot => snapshot with { Language = languageCode ?? LanguagePreference.SystemCode });
 
     public void UpdateEditorPreferences(double splitRatio, FindOptionsV1 findOptions) =>
         Update(snapshot => snapshot with
@@ -293,6 +298,11 @@ public sealed class SettingsService : IAsyncDisposable
             return SettingsV1.CreateDefault();
         }
 
+        // Only the *shape* is normalised here. Whether the code names a language we ship is
+        // decided against the catalogue at display time, so a settings file naming a language
+        // added in a later build is preserved instead of being reset on every launch.
+        var language = LanguagePreference.Sanitize(source.Language);
+
         var recent = new List<RecentDocumentEntry>(MaximumRecentDocuments);
         foreach (var entry in source.RecentDocuments ?? [])
         {
@@ -330,6 +340,7 @@ public sealed class SettingsService : IAsyncDisposable
         return source with
         {
             SchemaVersion = SettingsV1.CurrentSchemaVersion,
+            Language = language,
             RootMode = Enum.IsDefined(source.RootMode)
                 ? source.RootMode
                 : RootFollowMode.KeepRoot,

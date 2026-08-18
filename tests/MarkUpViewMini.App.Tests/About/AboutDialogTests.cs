@@ -1,3 +1,4 @@
+using MarkUpViewMini.App.Localization;
 using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Automation;
@@ -22,7 +23,7 @@ public sealed class AboutDialogTests
 
                 Assert.True(dialog.IsVisible);
                 Assert.Contains("열 수 없습니다", dialog.ErrorText.Text, StringComparison.Ordinal);
-                Assert.Equal("앱 라이선스", AutomationProperties.GetName(dialog));
+                Assert.Equal(Strings.Get("menu.information.appLicense"), AutomationProperties.GetName(dialog));
             }
             finally
             {
@@ -200,7 +201,7 @@ public sealed class AboutDialogTests
     {
         public bool TryOpen(Uri uri, out string? errorMessage)
         {
-            errorMessage = "링크를 열 수 없습니다.";
+            errorMessage = Strings.Get("about.linkOpenFailed");
             return false;
         }
     }

@@ -1,6 +1,7 @@
 <UserControl x:Class="MarkUpViewMini.App.Web.WebDocumentSurface"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:MarkUpViewMini.App.Localization"
              xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf">
     <Grid Background="White">
         <Grid x:Name="BrowserHost" />
@@ -10,7 +11,7 @@
                 BorderThickness="0,0,0,1"
                 Padding="12"
                 VerticalAlignment="Top"
-                AutomationProperties.Name="문서 화면 오류"
+                AutomationProperties.Name="{Binding [surface.error], Source={x:Static loc:AppLocalization.Source}}"
                 AutomationProperties.LiveSetting="Assertive"
                 Visibility="Collapsed">
             <DockPanel LastChildFill="True">
@@ -19,16 +20,16 @@
                             Orientation="Horizontal">
                     <Button Padding="12,4"
                             Click="CopyDiagnostics_Click"
-                            Content="Copy diagnostics"
-                            AutomationProperties.Name="안전한 진단 정보 복사" />
+                            Content="{Binding [surface.copyDiagnostics], Source={x:Static loc:AppLocalization.Source}}"
+                            AutomationProperties.Name="{Binding [surface.copyDiagnosticsName], Source={x:Static loc:AppLocalization.Source}}" />
                     <Button Margin="6,0,0,0"
                             Padding="12,4"
                             Click="RetryInitialization_Click"
-                            Content="Retry surface"
-                            AutomationProperties.Name="문서 화면 다시 시도" />
+                            Content="{Binding [surface.retry], Source={x:Static loc:AppLocalization.Source}}"
+                            AutomationProperties.Name="{Binding [surface.retryName], Source={x:Static loc:AppLocalization.Source}}" />
                 </StackPanel>
                 <TextBlock VerticalAlignment="Center"
-                           Text="The local document surface could not be started." />
+                           Text="{Binding [surface.startFailed], Source={x:Static loc:AppLocalization.Source}}" />
             </DockPanel>
         </Border>
     </Grid>

@@ -1,3 +1,4 @@
+using MarkUpViewMini.App.Localization;
 using System.Windows.Input;
 using MarkUpViewMini.Infrastructure.Windows;
 
@@ -5,8 +6,9 @@ namespace MarkUpViewMini.App.ViewModels;
 
 public sealed class WindowsIntegrationSettingsViewModel : ObservableObject, IDisposable
 {
-    private const string CheckingStatus = "파일 형식 등록 상태를 확인하는 중입니다…";
-    private const string CheckingShortcutStatus = "바로 가기 상태를 확인하는 중입니다…";
+    private static string CheckingStatus => Strings.Get("windowsIntegration.checkingFileTypes");
+
+    private static string CheckingShortcutStatus => Strings.Get("windowsIntegration.checkingShortcuts");
 
     private readonly IFileAssociationService service;
     private readonly IShortcutService shortcutService;
@@ -56,8 +58,7 @@ public sealed class WindowsIntegrationSettingsViewModel : ObservableObject, IDis
             CanStartOperation);
     }
 
-    public string GuidanceText { get; } =
-        "등록하면 MarkUpViewMini가 앱 선택 목록에 추가됩니다. 실제 기본 앱은 Windows에서 사용자가 선택합니다.";
+    public string GuidanceText => Strings.Get("windowsIntegration.guidance");
 
     public string StatusText
     {
@@ -141,7 +142,7 @@ public sealed class WindowsIntegrationSettingsViewModel : ObservableObject, IDis
         }
         catch
         {
-            Publish(generation, () => ErrorMessage = "Windows 통합 상태를 확인할 수 없습니다.");
+            Publish(generation, () => ErrorMessage = Strings.Get("windowsIntegration.error.status"));
         }
         finally
         {
@@ -155,7 +156,7 @@ public sealed class WindowsIntegrationSettingsViewModel : ObservableObject, IDis
             await service.RegisterAsync(executablePath).ConfigureAwait(false);
             return await service.GetStatusAsync().ConfigureAwait(false);
         },
-        "파일 형식을 등록할 수 없습니다.");
+        Strings.Get("windowsIntegration.error.register"));
 
     public Task UnregisterAsync() => RunOperationAsync(
         async () =>
@@ -163,19 +164,19 @@ public sealed class WindowsIntegrationSettingsViewModel : ObservableObject, IDis
             await service.UnregisterAsync().ConfigureAwait(false);
             return await service.GetStatusAsync().ConfigureAwait(false);
         },
-        "파일 형식 등록을 해제할 수 없습니다.");
+        Strings.Get("windowsIntegration.error.unregister"));
 
     public Task CreateStartMenuShortcutAsync() => RunShortcutOperationAsync(
         shortcutService.CreateStartMenuShortcutAsync,
-        "시작 메뉴 바로 가기를 만들 수 없습니다.");
+        Strings.Get("windowsIntegration.error.startMenuShortcut"));
 
     public Task CreateDesktopShortcutAsync() => RunShortcutOperationAsync(
         shortcutService.CreateDesktopShortcutAsync,
-        "바탕 화면 바로 가기를 만들 수 없습니다.");
+        Strings.Get("windowsIntegration.error.desktopShortcut"));
 
     public Task RemoveShortcutsAsync() => RunShortcutOperationAsync(
         shortcutService.RemoveOwnedShortcutsAsync,
-        "바로 가기를 제거할 수 없습니다.");
+        Strings.Get("windowsIntegration.error.removeShortcuts"));
 
     public void OpenWindowsDefaultAppsSettings()
     {
@@ -191,7 +192,7 @@ public sealed class WindowsIntegrationSettingsViewModel : ObservableObject, IDis
         }
         catch
         {
-            Publish(generation, () => ErrorMessage = "Windows 기본 앱 설정을 열 수 없습니다.");
+            Publish(generation, () => ErrorMessage = Strings.Get("windowsIntegration.error.openDefaultApps"));
         }
         finally
         {
@@ -266,8 +267,8 @@ public sealed class WindowsIntegrationSettingsViewModel : ObservableObject, IDis
     {
         IsRegistered = status.IsRegistered;
         StatusText = status.IsRegistered
-            ? "파일 형식이 등록되어 있습니다."
-            : "파일 형식이 등록되어 있지 않습니다.";
+            ? Strings.Get("windowsIntegration.registered")
+            : Strings.Get("windowsIntegration.notRegistered");
     }
 
     private void PublishShortcutStatus(ShortcutStatus status)
@@ -277,10 +278,10 @@ public sealed class WindowsIntegrationSettingsViewModel : ObservableObject, IDis
         ShortcutStatusText = status switch
         {
             { HasStartMenuShortcut: true, HasDesktopShortcut: true } =>
-                "시작 메뉴와 바탕 화면 바로 가기가 있습니다.",
-            { HasStartMenuShortcut: true } => "시작 메뉴 바로 가기가 있습니다.",
-            { HasDesktopShortcut: true } => "바탕 화면 바로 가기가 있습니다.",
-            _ => "바로 가기가 없습니다.",
+                Strings.Get("windowsIntegration.shortcuts.both"),
+            { HasStartMenuShortcut: true } => Strings.Get("windowsIntegration.shortcuts.startMenu"),
+            { HasDesktopShortcut: true } => Strings.Get("windowsIntegration.shortcuts.desktop"),
+            _ => Strings.Get("windowsIntegration.shortcuts.none"),
         };
     }
 

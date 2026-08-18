@@ -1,3 +1,4 @@
+using MarkUpViewMini.App.Localization;
 using MarkUpViewMini.Core.Documents;
 using MarkUpViewMini.Core.Persistence;
 using MarkUpViewMini.Infrastructure.Files;
@@ -66,7 +67,7 @@ public sealed class ConflictBarViewModel : ObservableObject
 
     internal void ShowConflict()
     {
-        Message = "파일이 외부에서 변경되었습니다. 사용할 버전을 선택하세요.";
+        Message = Strings.Get("conflict.message");
         AvailableDecisions = ConflictDecisions;
         Comparison = null;
         IsVisible = true;
@@ -75,7 +76,16 @@ public sealed class ConflictBarViewModel : ObservableObject
     internal void ShowPathState(FileChangeNotice notice)
     {
         ArgumentNullException.ThrowIfNull(notice);
-        Message = notice.DisplayMessage;
+        // Infrastructure reports what happened; naming it in the user's language is a UI
+        // concern, so the kind is mapped here rather than letting a localised string travel
+        // up from a layer that has no business knowing the display language.
+        Message = Strings.Get(notice.Kind switch
+        {
+            FileChangeKind.Deleted => "fileChange.deleted",
+            FileChangeKind.Renamed => "fileChange.renamed",
+            FileChangeKind.Inaccessible => "fileChange.inaccessible",
+            _ => "fileChange.changed",
+        });
         AvailableDecisions = NoDecisions;
         Comparison = null;
         IsVisible = true;

@@ -1,3 +1,4 @@
+using MarkUpViewMini.App.Localization;
 using System.Collections.ObjectModel;
 using System.Collections.Concurrent;
 using System.ComponentModel;
@@ -313,7 +314,7 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
                     existing.ApplyRecovered(buffer, provider);
                     if (!existing.CanEdit)
                     {
-                        ShowEditingError("읽기 전용 형식의 복구 내용을 보존했습니다. 다른 이름으로 저장을 사용하세요.");
+                        ShowEditingError(Strings.Get("editing.error.readOnlyRecoveryPreserved"));
                     }
                     scheduleRecovery?.Invoke(existing.Buffer!);
                     ActiveTab = existing;
@@ -338,7 +339,7 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
             tab.ApplyRecovered(buffer, provider);
             if (!tab.CanEdit)
             {
-                ShowEditingError("읽기 전용 형식의 복구 내용을 보존했습니다. 다른 이름으로 저장을 사용하세요.");
+                ShowEditingError(Strings.Get("editing.error.readOnlyRecoveryPreserved"));
             }
             scheduleRecovery?.Invoke(tab.Buffer!);
             Tabs.Add(tab);
@@ -563,7 +564,7 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
 
             if (!recoverySynchronized)
             {
-                ShowEditingError("문서는 저장했지만 복구본을 정리할 수 없습니다.");
+                ShowEditingError(Strings.Get("editing.error.savedButRecoveryNotCleaned"));
             }
 
             if (
@@ -680,7 +681,7 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
                 cancellationToken);
             if (result is SaveResult.Conflict)
             {
-                ShowEditingError("디스크의 파일이 변경되어 저장하지 않았습니다. 충돌을 먼저 해결하세요.");
+                ShowEditingError(Strings.Get("editing.error.diskChanged"));
                 return false;
             }
 
@@ -691,7 +692,7 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
 
             if (entry.Snapshot.Tab.IsDirty)
             {
-                ShowEditingError("저장 중 새 편집이 발생하여 문서를 닫지 않았습니다.");
+                ShowEditingError(Strings.Get("editing.error.editedWhileSaving"));
                 return false;
             }
 
@@ -703,18 +704,18 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
         }
         catch (EncoderFallbackException)
         {
-            ShowEditingError("현재 인코딩으로 저장할 수 없습니다. 다른 이름으로 저장을 사용하세요.");
+            ShowEditingError(Strings.Get("editing.error.encodingUnsupported"));
             return false;
         }
         catch (NotSupportedException)
         {
-            ShowEditingError("읽기 전용 형식은 원래 파일에 저장할 수 없습니다. 다른 이름으로 저장을 사용하세요.");
+            ShowEditingError(Strings.Get("editing.error.readOnlyFormat"));
             return false;
         }
         catch (Exception exception) when (
             exception is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
-            ShowEditingError("문서를 안전하게 저장하거나 복구본을 정리할 수 없어 닫지 않았습니다.");
+            ShowEditingError(Strings.Get("editing.error.cannotCloseSafely"));
             return false;
         }
     }
@@ -745,7 +746,7 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
         catch (Exception exception) when (
             exception is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
-            ShowEditingError("문서를 안전하게 저장하거나 복구본을 정리할 수 없어 닫지 않았습니다.");
+            ShowEditingError(Strings.Get("editing.error.cannotCloseSafely"));
             return false;
         }
     }
@@ -768,7 +769,7 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
     }
 
     internal void ShowShutdownOwnershipChanged() =>
-        ShowEditingError("닫기 준비 중 창이나 문서가 변경되었습니다. 다시 시도하세요.");
+        ShowEditingError(Strings.Get("editing.error.closeStateChanged"));
 
     internal void AbortApplicationShutdown()
     {
@@ -1351,7 +1352,7 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
                 {
                     if (!recoveryRemoved)
                     {
-                        ShowEditingError("외부 버전을 불러왔지만 이전 복구본을 정리할 수 없습니다.");
+                        ShowEditingError(Strings.Get("editing.error.reloadedButRecoveryNotCleaned"));
                     }
 
                     activation = ActivateReloadedOwnerAsync(reloadOwner, cancellationToken);
@@ -1380,7 +1381,7 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
                 if (IsCurrentExternalReload(owner, cancellationToken))
                 {
                     ShowEditingError(
-                        "외부 버전을 불러왔지만 편집 화면을 갱신할 수 없습니다.",
+                        Strings.Get("editing.error.reloadedButSurfaceStale"),
                         blocksClose: false);
                 }
             }).ConfigureAwait(false);
@@ -2230,7 +2231,7 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
                     ReferenceEquals(ActiveTab, owner.Tab))
                 {
                     ShowEditingError(
-                        "문서는 저장했지만 편집 화면을 갱신할 수 없습니다.",
+                        Strings.Get("editing.error.savedButSurfaceStale"),
                         blocksClose: false);
                 }
             }).ConfigureAwait(false);

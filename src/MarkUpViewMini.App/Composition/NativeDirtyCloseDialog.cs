@@ -1,3 +1,4 @@
+using MarkUpViewMini.App.Localization;
 using System.IO;
 using System.Windows;
 using System.Windows.Automation;
@@ -15,7 +16,7 @@ internal static class NativeDirtyCloseDialog
         var choice = DirtyCloseChoice.Cancel;
         var dialog = new Window
         {
-            Title = "미저장 변경",
+            Title = Strings.Get("dialog.dirtyClose.title"),
             Owner = owner,
             SizeToContent = SizeToContent.WidthAndHeight,
             ResizeMode = ResizeMode.NoResize,
@@ -25,7 +26,7 @@ internal static class NativeDirtyCloseDialog
         var panel = new StackPanel { Margin = new Thickness(18), MinWidth = 390 };
         panel.Children.Add(new TextBlock
         {
-            Text = $"{Path.GetFileName(tab.Path)} 문서의 변경 내용을 저장하시겠습니까?",
+            Text = Strings.Format("dialog.dirtyClose.message", Path.GetFileName(tab.Path)),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 0, 0, 16),
         });
@@ -34,9 +35,9 @@ internal static class NativeDirtyCloseDialog
             Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Right,
         };
-        buttons.Children.Add(CreateButton("저장", "변경 내용 저장", true, DirtyCloseChoice.Save));
-        buttons.Children.Add(CreateButton("버리기", "변경 내용 버리기", false, DirtyCloseChoice.Discard));
-        var cancel = CreateButton("취소", "닫기 취소", false, DirtyCloseChoice.Cancel);
+        buttons.Children.Add(CreateButton(Strings.Get("dialog.dirtyClose.save"), Strings.Get("dialog.dirtyClose.saveName"), true, DirtyCloseChoice.Save));
+        buttons.Children.Add(CreateButton(Strings.Get("dialog.dirtyClose.discard"), Strings.Get("dialog.dirtyClose.discardName"), false, DirtyCloseChoice.Discard));
+        var cancel = CreateButton(Strings.Get("dialog.dirtyClose.cancel"), Strings.Get("dialog.dirtyClose.cancelName"), false, DirtyCloseChoice.Cancel);
         cancel.IsCancel = true;
         buttons.Children.Add(cancel);
         panel.Children.Add(buttons);

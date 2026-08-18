@@ -1,31 +1,44 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
-    <title>Mermaid block editor</title>
+    <title>Mermaid</title>
     <link rel="stylesheet" href="./dist/editor.css">
   </head>
   <body>
     <main id="mermaid-app" class="mermaid-app">
-      <div class="editor-grid">
-        <textarea data-source aria-label="Mermaid source" spellcheck="false"></textarea>
-        <section>
-          <div class="status" data-status role="status"></div>
-          <div class="direction-controls" role="group" aria-label="Graph direction">
-            <button type="button" data-direction="TD">Top to bottom</button>
-            <button type="button" data-direction="TB">Top to bottom (TB)</button>
-            <button type="button" data-direction="LR">Left to right</button>
-            <button type="button" data-direction="BT">Bottom to top</button>
-            <button type="button" data-direction="RL">Right to left</button>
-          </div>
-          <div class="canvas-controls"><button type="button" data-zoom-out aria-label="Zoom out">−</button><button type="button" data-zoom-in aria-label="Zoom in">+</button><button type="button" data-canvas-reset>Reset view</button></div>
-          <div class="canvas-viewport" data-canvas-viewport><div class="canvas" data-canvas></div></div>
-          <aside data-inspector aria-label="Selected node inspector"></aside>
+      <div class="workspace-grid">
+        <section class="code-pane" data-i18n-aria-label="mermaid.pane.source">
+          <textarea data-source data-i18n-aria-label="mermaid.pane.source" spellcheck="false"></textarea>
         </section>
+
+        <section class="canvas-pane" data-i18n-aria-label="mermaid.pane.canvas">
+          <div class="status" data-status role="status"></div>
+          <div class="canvas-toolbar">
+            <div class="direction-controls" role="group" data-i18n-aria-label="mermaid.pane.directionGroup">
+              <button type="button" data-direction="TD" data-i18n-title="mermaid.toolbar.directionTD">↓ TD</button>
+              <button type="button" data-direction="TB" data-i18n-title="mermaid.toolbar.directionTB">↓ TB</button>
+              <button type="button" data-direction="LR" data-i18n-title="mermaid.toolbar.directionLR">→ LR</button>
+              <button type="button" data-direction="BT" data-i18n-title="mermaid.toolbar.directionBT">↑ BT</button>
+              <button type="button" data-direction="RL" data-i18n-title="mermaid.toolbar.directionRL">← RL</button>
+            </div>
+            <div class="canvas-controls">
+              <button type="button" data-zoom-out data-i18n-aria-label="mermaid.toolbar.zoomOut" data-i18n-title="mermaid.toolbar.zoomOut">−</button>
+              <button type="button" data-zoom-in data-i18n-aria-label="mermaid.toolbar.zoomIn" data-i18n-title="mermaid.toolbar.zoomIn">+</button>
+              <button type="button" data-canvas-reset data-i18n="mermaid.toolbar.reset" data-i18n-title="mermaid.toolbar.resetTitle"></button>
+            </div>
+          </div>
+          <div class="canvas-viewport" data-canvas-viewport>
+            <div class="canvas" data-canvas></div>
+            <div class="canvas-overlay" data-canvas-overlay></div>
+          </div>
+        </section>
+
+        <aside class="tool-pane" data-inspector data-i18n-aria-label="mermaid.pane.tools"></aside>
       </div>
-      <footer class="actions"><button type="button" data-cancel>Cancel</button><button type="button" data-confirm>Apply</button></footer>
+      <footer class="actions"><button type="button" data-cancel data-i18n="mermaid.action.cancel"></button><button type="button" data-confirm data-i18n="mermaid.action.apply"></button></footer>
     </main>
     <script src="./dist/editor.js"></script>
   </body>

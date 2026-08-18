@@ -1,3 +1,4 @@
+using MarkUpViewMini.App.Localization;
 using System.ComponentModel;
 using System.Diagnostics;
 
@@ -10,7 +11,7 @@ internal interface IAboutLinkLauncher
 
 internal sealed class AboutLinkLauncher : IAboutLinkLauncher
 {
-    private const string LinkOpenFailureMessage = "링크를 열 수 없습니다.";
+    private static string LinkOpenFailureMessage => Strings.Get("about.linkOpenFailed");
     private static readonly HashSet<string> AllowedUrls =
     [
         "https://ministool.com/",

@@ -1,3 +1,4 @@
+using MarkUpViewMini.App.Localization;
 using System.Collections.ObjectModel;
 using System.IO;
 using MarkUpViewMini.Core.Navigation;
@@ -222,8 +223,8 @@ public sealed class SidebarViewModel : ObservableObject, IDisposable
 
     public string? SearchStatusText => SearchSummary is null
         ? null
-        : $"검사 {SearchSummary.FilesScanned} · 큰 파일 건너뜀 {SearchSummary.SkippedLargeFiles} · 읽기 실패 {SearchSummary.UnreadableFiles}" +
-          (SearchSummary.WasCancelled ? " · 취소됨" : string.Empty);
+        : Strings.Format("sidebar.searchSummary", SearchSummary.FilesScanned, SearchSummary.SkippedLargeFiles, SearchSummary.UnreadableFiles) +
+          (SearchSummary.WasCancelled ? Strings.Get("sidebar.searchCancelledSuffix") : string.Empty);
 
     public bool IsSearching
     {

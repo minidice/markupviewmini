@@ -632,18 +632,41 @@ public sealed class MermaidEditingAcceptanceTests
 
     private static Task RunOnStaAsync(Func<Task> action)
     {
+        // The real app's UI thread continuously pumps its Dispatcher (WPF's message loop), so
+        // production code is free to rely on that - e.g. Dispatcher.Yield() to step outside a
+        // WebView2 WebMessageReceived callback before opening a second WebView2-hosted dialog
+        // (see WebDocumentSurface.HandleMermaidEditRequestedAsync). A bare STA thread with no
+        // Dispatcher.Run() loop can't honor that: nothing ever drains the dispatcher queue, so
+        // such an await never resumes. Running a real dispatcher loop here matches the app.
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = new Thread(() =>
         {
-            try
+            var dispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
+            // WPF's real Application.Run() installs this automatically so that `await`
+            // continuations resume back on the UI thread instead of an arbitrary thread-pool
+            // thread. Without it, WPF objects created here get disposed from the wrong thread.
+            SynchronizationContext.SetSynchronizationContext(
+                new System.Windows.Threading.DispatcherSynchronizationContext(dispatcher));
+
+            async void RunAndShutdown()
             {
-                action().GetAwaiter().GetResult();
-                completion.TrySetResult();
+                try
+                {
+                    await action();
+                    completion.TrySetResult();
+                }
+                catch (Exception exception)
+                {
+                    completion.TrySetException(exception);
+                }
+                finally
+                {
+                    dispatcher.InvokeShutdown();
+                }
             }
-            catch (Exception exception)
-            {
-                completion.TrySetException(exception);
-            }
+
+            RunAndShutdown();
+            System.Windows.Threading.Dispatcher.Run();
         });
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();

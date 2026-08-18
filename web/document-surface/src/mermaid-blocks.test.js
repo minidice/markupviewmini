@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeAll } from "vitest";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { createEditorController } from "./editor-controller.js";
@@ -12,6 +12,11 @@ import {
 } from "./mermaid-blocks.js";
 import { renderPreview } from "./preview.js";
 import { createTabStateStore } from "./tab-state-store.js";
+import { setLanguage } from "../../shared/i18n/index.js";
+
+// These assertions name the Korean strings directly, so the language has to be pinned:
+// the surface starts on English until the host sends its locale message.
+beforeAll(() => setLanguage("ko"));
 
 const WINDOW_ID = "11111111-1111-4111-8111-111111111111";
 const TAB_ID = "22222222-2222-4222-8222-222222222222";

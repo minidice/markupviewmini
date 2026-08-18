@@ -792,6 +792,28 @@ public partial class WebDocumentSurface : UserControl, IDisposable, IWebViewReco
         }
     }
 
+    /// <summary>Tells the surface which language to label its own controls in.</summary>
+    /// <remarks>
+    /// Carries no document correlation on purpose: the language is not a property of any
+    /// document, and requiring a matching tab would drop the change whenever none is active.
+    /// Safe to call before the surface is up - it simply does nothing until then, and the
+    /// caller sends it again once initialisation finishes.
+    /// </remarks>
+    internal void PostLanguage(string languageCode)
+    {
+        if (disposed || Browser.CoreWebView2 is null)
+        {
+            return;
+        }
+
+        Browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+        {
+            version = 1,
+            type = "document.setLanguage",
+            payload = new { language = languageCode ?? string.Empty },
+        }));
+    }
+
     private void PostActivation(DocumentTabViewModel tab, WebActivationStamp activation)
     {
         var requestId = Guid.NewGuid();
@@ -916,6 +938,14 @@ public partial class WebDocumentSurface : UserControl, IDisposable, IWebViewReco
         {
             return;
         }
+
+        // Opening the dialog creates a second WebView2 control that shares this control's
+        // CoreWebView2Environment, and ShowDialog() pumps a nested message loop to initialize
+        // it. Doing that synchronously from inside this WebView2's own WebMessageReceived COM
+        // callback is a known WebView2 re-entrancy hazard (EnsureCoreWebView2Async can hang or,
+        // under a native debugger, crash with STATUS_BREAKPOINT). Yielding first lets this
+        // callback return to the message loop normally before the second control is created.
+        await System.Windows.Threading.Dispatcher.Yield();
 
         var dialog = mermaidDialogFactory.Create(
             appDataPaths,

@@ -1,3 +1,4 @@
+using MarkUpViewMini.App.Localization;
 using System.IO;
 using System.Windows;
 using System.Windows.Automation;
@@ -61,11 +62,11 @@ internal sealed class NativeRecoveryDecisionDialog : IRecoveryDecisionDialog
         grid.RowDefinitions.Add(new RowDefinition());
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         grid.ColumnDefinitions.Add(new ColumnDefinition());
-        var recoveredHeader = CreateHeader("복구본");
-        var originalHeader = CreateHeader("현재 원본");
+        var recoveredHeader = CreateHeader(Strings.Get("dialog.recovery.recovered"));
+        var originalHeader = CreateHeader(Strings.Get("dialog.recovery.original"));
         Grid.SetColumn(originalHeader, 1);
-        var recovered = CreateTextBox(comparison.Recovered.Text, "복구본 내용 (읽기 전용)");
-        var original = CreateTextBox(comparison.Original.Text, "현재 원본 내용 (읽기 전용)");
+        var recovered = CreateTextBox(comparison.Recovered.Text, Strings.Get("dialog.recovery.recoveredBody"));
+        var original = CreateTextBox(comparison.Original.Text, Strings.Get("dialog.recovery.originalBody"));
         Grid.SetRow(recovered, 1);
         Grid.SetRow(original, 1);
         Grid.SetColumn(original, 1);
@@ -75,7 +76,7 @@ internal sealed class NativeRecoveryDecisionDialog : IRecoveryDecisionDialog
         grid.Children.Add(original);
         return new Window
         {
-            Title = $"복구 비교 - {Path.GetFileName(comparison.Recovered.Path)}",
+            Title = Strings.Format("dialog.recovery.title", Path.GetFileName(comparison.Recovered.Path)),
             Width = 900,
             Height = 600,
             Content = grid,

@@ -1,3 +1,4 @@
+using MarkUpViewMini.App.Localization;
 using System.IO;
 using System.Reflection;
 using System.Resources;
@@ -10,8 +11,8 @@ internal sealed class AboutMetadataProvider : IAboutMetadataProvider
 {
     private const string RuntimeNoticesResourceName = "MarkUpViewMini.App.About.Resources.runtime-notices.json";
     private const string ApplicationLicenseResourceName = "MarkUpViewMini.App.About.Resources.app-license.txt";
-    private const string NoticesUnavailableMessage = "타사 구성 요소 고지를 읽을 수 없습니다.";
-    private const string LicenseUnavailableMessage = "앱 라이선스를 읽을 수 없습니다.";
+    private static string NoticesUnavailableMessage => Strings.Get("about.noticesUnavailable");
+    private static string LicenseUnavailableMessage => Strings.Get("about.licenseUnavailable");
 
     private static readonly string[] HighlightedLibraryNames =
     [
@@ -78,8 +79,12 @@ internal sealed class AboutMetadataProvider : IAboutMetadataProvider
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion ??
             applicationAssembly.GetName().Version?.ToString() ??
-            "알 수 없음";
-        var body = $"MarkUpViewMini\n버전: {version}\n프레임워크: {RuntimeInformation.FrameworkDescription}\n런타임: {Environment.Version}";
+            Strings.Get("about.unknown");
+        var body = Strings.Format(
+            "about.versionBody",
+            version,
+            RuntimeInformation.FrameworkDescription,
+            Environment.Version);
         if (!noticesAvailable)
         {
             body = $"{body}\n\n{NoticesUnavailableMessage}";
@@ -98,12 +103,12 @@ internal sealed class AboutMetadataProvider : IAboutMetadataProvider
             var libraryLines = string.Join(
                 '\n',
                 highlightedLibraries.Select(static item => $"- {item.Name} {item.Version}"));
-            body = $"{body}\n\n주요 구성 요소:\n{libraryLines}";
+            body = Strings.Format("about.componentsSuffix", body, libraryLines);
         }
 
         return new AboutDialogContent(
             AboutDialogKind.Version,
-            "버전 정보",
+            Strings.Get("menu.information.version"),
             body,
             [],
             []);
@@ -118,8 +123,8 @@ internal sealed class AboutMetadataProvider : IAboutMetadataProvider
             .ToArray();
         return new AboutDialogContent(
             AboutDialogKind.ThirdPartyLicenses,
-            "타사 라이선스",
-            noticesAvailable ? "이 앱에 포함된 런타임 구성 요소의 고지입니다." : NoticesUnavailableMessage,
+            Strings.Get("menu.information.thirdParty"),
+            noticesAvailable ? Strings.Get("about.thirdPartyBody") : NoticesUnavailableMessage,
             ordered,
             []);
     }
@@ -137,7 +142,7 @@ internal sealed class AboutMetadataProvider : IAboutMetadataProvider
 
             return new AboutDialogContent(
                 AboutDialogKind.ApplicationLicense,
-                "앱 라이선스",
+                Strings.Get("menu.information.appLicense"),
                 license,
                 [],
                 [
@@ -219,7 +224,7 @@ internal sealed class AboutMetadataProvider : IAboutMetadataProvider
 
     private static AboutDialogContent CreateUnavailableLicenseContent() => new(
         AboutDialogKind.ApplicationLicense,
-        "앱 라이선스",
+        Strings.Get("menu.information.appLicense"),
         LicenseUnavailableMessage,
         [],
         []);

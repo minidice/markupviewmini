@@ -1,8 +1,9 @@
 <Window x:Class="MarkUpViewMini.App.Mermaid.MermaidEditDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:MarkUpViewMini.App.Localization"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
-        Title="Mermaid 블록 편집"
+        Title="{Binding [mermaid.dialog.title], Source={x:Static loc:AppLocalization.Source}}"
         Width="1000"
         Height="720"
         MinWidth="720"
@@ -25,17 +26,17 @@
                 BorderBrush="#FFE3B341"
                 BorderThickness="0,1,0,0"
                 Visibility="Collapsed"
-                AutomationProperties.Name="Mermaid 편집 충돌">
+                AutomationProperties.Name="{Binding [mermaid.dialog.conflict], Source={x:Static loc:AppLocalization.Source}}">
             <StackPanel>
                 <DockPanel LastChildFill="True">
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                         <Button Padding="12,4"
                                 Click="Reopen_Click"
-                                Content="다시 열기" />
+                                Content="{Binding [mermaid.dialog.reopen], Source={x:Static loc:AppLocalization.Source}}" />
                         <Button Margin="6,0,0,0"
                                 Padding="12,4"
                                 Click="Compare_Click"
-                                Content="비교" />
+                                Content="{Binding [mermaid.dialog.compare], Source={x:Static loc:AppLocalization.Source}}" />
                     </StackPanel>
                     <TextBlock x:Name="ConflictMessage"
                                VerticalAlignment="Center"
@@ -58,15 +59,15 @@
                     Orientation="Horizontal">
             <Button Padding="14,5"
                     Click="Cancel_Click"
-                    Content="취소"
+                    Content="{Binding [mermaid.dialog.cancel], Source={x:Static loc:AppLocalization.Source}}"
                     IsCancel="True" />
             <Button x:Name="ConfirmButton"
                     Margin="8,0,0,0"
                     Padding="14,5"
                     Click="Confirm_Click"
-                    Content="확인"
+                    Content="{Binding [mermaid.dialog.confirm], Source={x:Static loc:AppLocalization.Source}}"
                     IsEnabled="False"
-                    AutomationProperties.HelpText="지원되는 현재 Mermaid 소스가 확인되면 활성화됩니다."
+                    AutomationProperties.HelpText="{Binding [mermaid.dialog.confirmHint], Source={x:Static loc:AppLocalization.Source}}"
                     IsDefault="True" />
         </StackPanel>
     </Grid>

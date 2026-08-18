@@ -1,3 +1,4 @@
+using MarkUpViewMini.App.Localization;
 using System.ComponentModel;
 using System.Diagnostics;
 using MarkUpViewMini.App.About;
@@ -54,6 +55,6 @@ public sealed class AboutLinkLauncherTests
         var opened = launcher.TryOpen(new Uri("https://ministool.com/"), out var errorMessage);
 
         Assert.False(opened);
-        Assert.Equal("링크를 열 수 없습니다.", errorMessage);
+        Assert.Equal(Strings.Get("about.linkOpenFailed"), errorMessage);
     }
 }

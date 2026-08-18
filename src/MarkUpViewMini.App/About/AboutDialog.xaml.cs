@@ -1,3 +1,4 @@
+using MarkUpViewMini.App.Localization;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -9,7 +10,7 @@ namespace MarkUpViewMini.App.About;
 
 internal partial class AboutDialog : Window
 {
-    private const string DefaultLinkOpenFailureMessage = "링크를 열 수 없습니다.";
+    private static string DefaultLinkOpenFailureMessage => Strings.Get("about.linkOpenFailed");
     private readonly IAboutLinkLauncher launcher;
 
     internal AboutDialog(AboutDialogContent content, IAboutLinkLauncher launcher)
@@ -103,7 +104,7 @@ internal partial class AboutDialog : Window
             NavigateUri = link,
         };
         hyperlink.RequestNavigate += Link_RequestNavigate;
-        AutomationProperties.SetName(hyperlink, $"외부 링크 열기: {displayText}");
+        AutomationProperties.SetName(hyperlink, Strings.Format("about.openExternalLink", displayText));
 
         return hyperlink;
     }

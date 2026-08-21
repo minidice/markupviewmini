@@ -321,6 +321,16 @@ try {
         throw 'The MSIX package was not created.'
     }
 
+    & dotnet test (Join-Path $repositoryRoot 'tests\MarkUpViewMini.App.Tests') `
+        -c Release `
+        --no-restore `
+        --filter 'FullyQualifiedName~Msix_package_contains_the_document_surface_startup_assets' `
+        -m:1 `
+        -nr:false
+    if ($LASTEXITCODE -ne 0) {
+        throw "MSIX package asset audit failed with exit code $LASTEXITCODE."
+    }
+
     [ordered]@{
         sourceCommit = $sourceCommit
         sourceTree = $sourceTree

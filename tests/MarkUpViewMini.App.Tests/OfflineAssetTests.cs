@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection.Metadata;
@@ -21,6 +22,39 @@ public sealed partial class OfflineAssetTests
         "artifacts",
         "portable",
         "MarkUpViewMini");
+    private static readonly string MsixPackagePath = Path.Combine(
+        RepositoryRoot,
+        "artifacts",
+        "msix",
+        "MarkUpViewMini-win-x64.msix");
+
+    [Fact]
+    public void Msix_package_contains_the_document_surface_startup_assets()
+    {
+        Assert.True(
+            File.Exists(MsixPackagePath),
+            "Run scripts/publish-msix.ps1 before the MSIX package audit.");
+
+        using var archive = ZipFile.OpenRead(MsixPackagePath);
+        string[] requiredEntries =
+        [
+            "MarkUpViewMini.App/web/document-surface/index.html",
+            "MarkUpViewMini.App/web/document-surface/dist/editor.js",
+            "MarkUpViewMini.App/web/document-surface/dist/editor.css",
+            "MarkUpViewMini.App/web/document-surface/dist/runtime-components.json",
+            "MarkUpViewMini.App/web/mermaid-editor/index.html",
+            "MarkUpViewMini.App/web/mermaid-editor/dist/editor.js",
+            "MarkUpViewMini.App/web/mermaid-editor/dist/editor.css",
+            "MarkUpViewMini.App/web/mermaid-editor/dist/runtime-components.json",
+        ];
+
+        foreach (var requiredEntry in requiredEntries)
+        {
+            Assert.Contains(
+                archive.Entries,
+                entry => string.Equals(entry.FullName, requiredEntry, StringComparison.Ordinal));
+        }
+    }
 
     [Fact]
     public void Portable_publish_contains_the_root_mit_license()

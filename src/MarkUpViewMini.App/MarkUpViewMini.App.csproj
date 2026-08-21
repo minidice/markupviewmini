@@ -104,39 +104,6 @@
           WorkingDirectory="$(DocumentSurfaceDirectory)" />
   </Target>
 
-  <Target Name="CopyDocumentSurfaceAssets"
-          AfterTargets="CopyFilesToOutputDirectory"
-          DependsOnTargets="BuildDocumentSurface"
-          Condition="'$(DesignTimeBuild)' != 'true'">
-    <ItemGroup>
-      <_DocumentSurfaceAsset Include="$(DocumentSurfaceDirectory)\dist\**\*.*" />
-      <_DocumentSurfaceOutputAsset Include="@(_DocumentSurfaceAsset->'$(TargetDir)web\document-surface\dist\%(RecursiveDir)%(Filename)%(Extension)')" />
-      <FileWrites Include="@(_DocumentSurfaceOutputAsset)" />
-    </ItemGroup>
-    <RemoveDir Directories="$(TargetDir)web\document-surface\dist" />
-    <Copy SourceFiles="@(_DocumentSurfaceAsset)"
-          DestinationFiles="@(_DocumentSurfaceOutputAsset)"
-          SkipUnchangedFiles="true" />
-    <Exec Command="node verify-dist.mjs copy &quot;$(DocumentSurfaceDirectory)\dist&quot; &quot;$(TargetDir)web\document-surface\dist&quot; &quot;$(DocumentSurfaceDirectory)\dist\manifest.txt&quot;"
-          WorkingDirectory="$(DocumentSurfaceDirectory)" />
-  </Target>
-
-  <Target Name="CopyDocumentSurfacePublishAssets"
-          AfterTargets="Publish"
-          DependsOnTargets="BuildDocumentSurface"
-          Condition="'$(DesignTimeBuild)' != 'true'">
-    <ItemGroup>
-      <_DocumentSurfacePublishAsset Include="$(DocumentSurfaceDirectory)\dist\**\*.*" />
-      <_DocumentSurfacePublishOutput Include="@(_DocumentSurfacePublishAsset->'$(PublishDir)web\document-surface\dist\%(RecursiveDir)%(Filename)%(Extension)')" />
-    </ItemGroup>
-    <RemoveDir Directories="$(PublishDir)web\document-surface\dist" />
-    <Copy SourceFiles="@(_DocumentSurfacePublishAsset)"
-          DestinationFiles="@(_DocumentSurfacePublishOutput)"
-          SkipUnchangedFiles="true" />
-    <Exec Command="node verify-dist.mjs copy &quot;$(DocumentSurfaceDirectory)\dist&quot; &quot;$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(PublishDir)web\document-surface\dist'))&quot; &quot;$(DocumentSurfaceDirectory)\dist\manifest.txt&quot;"
-          WorkingDirectory="$(DocumentSurfaceDirectory)" />
-  </Target>
-
   <Target Name="BuildMermaidEditor"
           Condition="'$(DesignTimeBuild)' != 'true'"
           Inputs="@(MermaidEditorBuildInput)"
@@ -147,33 +114,29 @@
           WorkingDirectory="$(MermaidEditorDirectory)" />
   </Target>
 
-  <Target Name="CopyMermaidEditorAssets"
-          AfterTargets="CopyFilesToOutputDirectory"
-          DependsOnTargets="BuildMermaidEditor"
-          Condition="'$(DesignTimeBuild)' != 'true'">
+  <Target Name="RegisterWebSurfaceAssets"
+          BeforeTargets="AssignTargetPaths"
+          DependsOnTargets="BuildDocumentSurface;BuildMermaidEditor"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(WebSurfaceAssetsRegistered)' != 'true'">
+    <PropertyGroup>
+      <WebSurfaceAssetsRegistered>true</WebSurfaceAssetsRegistered>
+    </PropertyGroup>
     <ItemGroup>
+      <_DocumentSurfaceAsset Include="$(DocumentSurfaceDirectory)\dist\**\*.*" />
       <_MermaidEditorAsset Include="$(MermaidEditorDirectory)\dist\**\*.*" />
-      <_MermaidEditorOutputAsset Include="@(_MermaidEditorAsset->'$(TargetDir)web\mermaid-editor\dist\%(RecursiveDir)%(Filename)%(Extension)')" />
-      <FileWrites Include="@(_MermaidEditorOutputAsset)" />
+      <Content Include="@(_DocumentSurfaceAsset)">
+        <Link>web\document-surface\dist\%(_DocumentSurfaceAsset.RecursiveDir)%(_DocumentSurfaceAsset.Filename)%(_DocumentSurfaceAsset.Extension)</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <Visible>false</Visible>
+      </Content>
+      <Content Include="@(_MermaidEditorAsset)">
+        <Link>web\mermaid-editor\dist\%(_MermaidEditorAsset.RecursiveDir)%(_MermaidEditorAsset.Filename)%(_MermaidEditorAsset.Extension)</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <Visible>false</Visible>
+      </Content>
     </ItemGroup>
-    <RemoveDir Directories="$(TargetDir)web\mermaid-editor\dist" />
-    <Copy SourceFiles="@(_MermaidEditorAsset)"
-          DestinationFiles="@(_MermaidEditorOutputAsset)"
-          SkipUnchangedFiles="true" />
-  </Target>
-
-  <Target Name="CopyMermaidEditorPublishAssets"
-          AfterTargets="Publish"
-          DependsOnTargets="BuildMermaidEditor"
-          Condition="'$(DesignTimeBuild)' != 'true'">
-    <ItemGroup>
-      <_MermaidEditorPublishAsset Include="$(MermaidEditorDirectory)\dist\**\*.*" />
-      <_MermaidEditorPublishOutput Include="@(_MermaidEditorPublishAsset->'$(PublishDir)web\mermaid-editor\dist\%(RecursiveDir)%(Filename)%(Extension)')" />
-    </ItemGroup>
-    <RemoveDir Directories="$(PublishDir)web\mermaid-editor\dist" />
-    <Copy SourceFiles="@(_MermaidEditorPublishAsset)"
-          DestinationFiles="@(_MermaidEditorPublishOutput)"
-          SkipUnchangedFiles="true" />
   </Target>
 
 </Project>

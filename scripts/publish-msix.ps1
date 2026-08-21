@@ -1,5 +1,7 @@
 [CmdletBinding()]
-param()
+param(
+    [switch] $IncludeStoreUpload
+)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -237,6 +239,24 @@ function Get-OrCreateMsixTestCertificate {
             '2.5.29.19={text}Subject Type:End Entity')
 }
 
+function Assert-StoreUploadContainsPackage {
+    param([Parameter(Mandatory)] [string] $Path)
+
+    $archive = [IO.Compression.ZipFile]::OpenRead($Path)
+    try {
+        $packagePayload = @($archive.Entries | Where-Object {
+            $_.FullName.EndsWith('.msix', [StringComparison]::OrdinalIgnoreCase) -or
+            $_.FullName.EndsWith('.msixbundle', [StringComparison]::OrdinalIgnoreCase)
+        })
+        if ($packagePayload.Count -eq 0) {
+            throw "Store upload package does not contain an MSIX or MSIX bundle: $Path"
+        }
+    }
+    finally {
+        $archive.Dispose()
+    }
+}
+
 $repositoryRoot = Get-VerifiedPhysicalRoot -Root (Join-Path $PSScriptRoot '..')
 $artifactRoot = Assert-ControlledMutationPath `
     -Path (Join-Path $repositoryRoot 'artifacts') `
@@ -247,6 +267,9 @@ $msixOutputDirectory = Assert-ControlledMutationPath `
 $msixPath = Assert-ControlledMutationPath `
     -Path (Join-Path $msixOutputDirectory 'MarkUpViewMini-win-x64.msix') `
     -TrustedRoot $repositoryRoot
+$storeUploadPath = Assert-ControlledMutationPath `
+    -Path (Join-Path $msixOutputDirectory 'MarkUpViewMini-win-x64.msixupload') `
+    -TrustedRoot $repositoryRoot
 $wapprojPath = Assert-ControlledMutationPath `
     -Path (Join-Path $repositoryRoot 'src\MarkUpViewMini.App.Package\MarkUpViewMini.App.Package.wapproj') `
     -TrustedRoot $repositoryRoot
@@ -256,6 +279,11 @@ $applicationProjectPath = Assert-ControlledMutationPath `
 $manifestPath = Assert-ControlledMutationPath `
     -Path (Join-Path $repositoryRoot 'src\MarkUpViewMini.App.Package\Package.appxmanifest') `
     -TrustedRoot $repositoryRoot
+$storeAssociationPath = Join-Path $repositoryRoot 'src\MarkUpViewMini.App.Package\Package.StoreAssociation.xml'
+
+if ($IncludeStoreUpload -and -not (Test-Path -LiteralPath $storeAssociationPath -PathType Leaf)) {
+    throw "Store upload requires a package Store Association file: $storeAssociationPath"
+}
 
 $trackedStatus = Get-CheckedGitOutput @('status', '--porcelain', '--untracked-files=all')
 if (-not [string]::IsNullOrWhiteSpace($trackedStatus)) {
@@ -331,12 +359,37 @@ try {
         throw "MSIX package asset audit failed with exit code $LASTEXITCODE."
     }
 
+    if ($IncludeStoreUpload) {
+        & $msbuildPath $wapprojPath `
+            '/restore' `
+            '/p:Configuration=Release' `
+            '/p:Platform=x64' `
+            '/p:AppxBundle=Always' `
+            '/p:UapAppxPackageBuildMode=StoreUpload' `
+            '/p:AppxSymbolPackageEnabled=true' `
+            "/p:AppxStoreContainer=$storeUploadPath" `
+            "-p:SourceRevisionId=$sourceCommit"
+        if ($LASTEXITCODE -ne 0) {
+            throw "MSBuild failed to produce the Store upload package with exit code $LASTEXITCODE."
+        }
+
+        if (-not (Test-Path -LiteralPath $storeUploadPath -PathType Leaf)) {
+            throw 'The Store upload package was not created.'
+        }
+
+        Assert-StoreUploadContainsPackage -Path $storeUploadPath
+    }
+
     [ordered]@{
         sourceCommit = $sourceCommit
         sourceTree = $sourceTree
         identityVersion = $msixVersion
         msixPath = $msixPath
         msixSha256 = (Get-FileHash -LiteralPath $msixPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        storeUploadPath = if ($IncludeStoreUpload) { $storeUploadPath } else { $null }
+        storeUploadSha256 = if ($IncludeStoreUpload) {
+            (Get-FileHash -LiteralPath $storeUploadPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        } else { $null }
         signingCertificateThumbprint = $certificate.Thumbprint
         signingCertificateSubject = $identitySubject
     } | ConvertTo-Json

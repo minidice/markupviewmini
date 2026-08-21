@@ -9,7 +9,7 @@
   <Identity
     Name="minidice.MarkUpViewMini"
     Publisher="CN=8C99C32D-3635-4B18-9D64-6DD935749D97"
-    Version="1.0.0.0" />
+    Version="1.0.1.0" />
 
   <Properties>
     <DisplayName>MarkUpViewMini</DisplayName>

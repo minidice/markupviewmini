@@ -99,8 +99,13 @@ const SAFE_MERMAID_ATTRIBUTES = [
   "style", "text-anchor", "transform", "viewBox", "width", "x", "x1", "x2", "y", "y1", "y2",
 ];
 
+// No "background-color" here on purpose: it paints nothing on an SVG element (mermaid colors
+// shapes with `fill`), it only ever mattered for the HTML labels this surface disables, and
+// leaving it out keeps a `background: url(...)` shorthand from surviving rule filtering - CSSOM
+// expands that shorthand into longhands, and the harmless-looking `background-color: initial`
+// among them would otherwise be enough to keep the whole rule alive.
 const SAFE_MERMAID_STYLE_PROPERTIES = new Set([
-  "alignment-baseline", "background-color", "color", "display", "dominant-baseline", "fill",
+  "alignment-baseline", "color", "display", "dominant-baseline", "fill",
   "fill-opacity", "font-family", "font-size", "font-style", "font-weight", "line-height",
   "margin", "margin-bottom", "margin-left", "margin-right", "margin-top", "max-width",
   "opacity", "overflow", "padding", "shape-rendering", "stroke", "stroke-dasharray",
@@ -188,7 +193,18 @@ function scopedMermaidSelectorList(selectorText, rootId, originalRootId) {
 }
 
 function sanitizeMermaidStyleSheet(css, rootId, originalRootId) {
-  if (!css || hasUnsafeCssResource(css)) return "";
+  // Deliberately no content scan of the whole sheet before parsing it. Mermaid emits every
+  // diagram's theme as ONE stylesheet that always opens with `@keyframes edge-animation-frame`
+  // (its animated-edge feature, present whether or not the diagram animates anything), so a
+  // sheet-wide "reject on @" bail discarded 100% of real theme CSS - the entire preview fell
+  // back to the SVG default fill (black shapes, black labels) while the same diagram looked
+  // correct in the Mermaid editor, which does not sanitize. A sheet-wide scan is also the same
+  // all-or-nothing failure mode the per-rule loop below was written to eliminate. Safety comes
+  // from what that loop lets through: at-rules never survive (only rule.type 1 is copied, so
+  // @import/@font-face/@media/@keyframes bodies are dropped whole), selectors must match
+  // SAFE_MERMAID_SELECTOR and get scoped under the SVG root, and every declaration value is
+  // still checked with hasUnsafeCssResource.
+  if (!css) return "";
   const rules = detachedMermaidStyleRules(css);
   if (!rules?.length) return "";
 
@@ -250,49 +266,27 @@ function sanitizeMermaidSvg(svg, rootId) {
     }
   }
   // Edge-label background rects (the pill mermaid draws behind a "Y"/"N"-style link label so
-  // it doesn't cross the line) ship from mermaid with no fill at all in SVG-text mode — not
-  // stripped by us, mermaid's own output already omits it here. An SVG rect with no fill
-  // defaults to solid black, so without this every edge label renders as an opaque black box.
-  // This rect's own vertical position also assumes mermaid's alphabetic-baseline text metrics
-  // (e.g. y="-1" for a 23-tall rect — not centered on the label group's local origin). Once
-  // the label text below is re-centered on dominant-baseline instead, that mismatch leaves the
-  // text poking out above the rect. Re-center the rect on the same local origin using only its
-  // own height, matching the centered convention every other label already uses.
+  // it doesn't cross the line) carry no fill attribute in SVG-text mode; mermaid fills them
+  // from its theme sheet instead (".edgeLabel rect { fill: ... }"). An SVG rect with no fill
+  // from either source defaults to solid black, so this backstops a theme that doesn't style
+  // them. A real theme rule still wins - a presentation attribute loses to any CSS declaration.
+  // Do NOT reposition this rect: mermaid's own y (e.g. y="-1" for a 23-tall rect) is what its
+  // text baseline is laid out against, and "correcting" it only knocks the two apart.
   for (const backgroundRect of root.querySelectorAll("rect.background")) {
     const inlineStyle = backgroundRect.getAttribute("style") ?? "";
     const hasFill = backgroundRect.hasAttribute("fill") || /(?:^|;)\s*fill\s*:/iu.test(inlineStyle);
     if (!hasFill) backgroundRect.setAttribute("fill", "white");
-    const height = Number.parseFloat(backgroundRect.getAttribute("height") ?? "");
-    if (Number.isFinite(height) && height > 0) backgroundRect.setAttribute("y", String(-height / 2));
   }
-  // Every label mermaid lays out around a node/edge is meant to be horizontally centered on
-  // its `x="0"` anchor point (that's what mermaid itself does for a short, single-chunk
-  // label — both the <text> and its "row" tspan get text-anchor="middle"). But once a label
-  // is long enough to word-wrap into multiple inner tspans, mermaid's SVG-text-mode renderer
-  // stops emitting text-anchor at all on the outer <text>/row-tspan pair, so it falls back to
-  // SVG's default "start" (left) anchor: the text still starts at the node's horizontal
-  // center but now grows rightward past the shape's edge instead of straddling the center.
-  // This isn't sanitizer stripping — it's missing from mermaid's own unsanitized output too.
+  // Same backstop for horizontal centering: mermaid centers labels through its theme sheet
+  // (".node .label text { text-anchor: middle; }") rather than per-element attributes on every
+  // wrapped label, so a label whose governing rule didn't survive sanitization would fall back
+  // to SVG's default "start" anchor and grow rightward out of its shape. A surviving theme rule
+  // still wins over this attribute, and it sets the same value mermaid does.
+  // Vertical placement gets no such treatment: mermaid's y/dy values are already measured
+  // against the font metrics its own stylesheet establishes, so anything added here (a forced
+  // dominant-baseline, a dy nudge) fights layout that is correct on its own.
   for (const textElement of root.querySelectorAll("text, tspan[x]")) {
     if (!textElement.hasAttribute("text-anchor")) textElement.setAttribute("text-anchor", "middle");
-    // Mermaid positions each label's baseline at roughly the node's vertical center (e.g.
-    // y="-0.1em" on the row tspan), which only looks centered if the rendering font's ascent
-    // and descent happen to be near-symmetric around that baseline. Most fonts' ascent is
-    // noticeably taller than their descent, so the glyphs actually drawn end up mostly above
-    // the baseline — shifting the visible label upward off-center, worse the more of the
-    // node's vertical space is taken up by ascent-heavy glyphs (CJK text included). Anchoring
-    // to the font's central baseline instead of the alphabetic one fixes this regardless of
-    // which font ends up rendering the text.
-    if (!textElement.hasAttribute("dominant-baseline")) {
-      textElement.setAttribute("dominant-baseline", "central");
-      // `dominant-baseline="central"` centers on the font's central-baseline table, which is
-      // still measurably off from the shape's true geometric center for the fonts this renders
-      // with (verified empirically, Chromium: Korean + Latin fallback) — the block sits about
-      // 0.83em too high regardless of shape size. This nudge is tuned for the single-line case
-      // (the common one); multi-line wrapped labels have their own extra per-row skew on top of
-      // this and are only partially corrected.
-      if (!textElement.hasAttribute("dy")) textElement.setAttribute("dy", "0.83em");
-    }
   }
   return root.outerHTML;
 }

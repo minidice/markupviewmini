@@ -16,4 +16,6 @@ docs/
 *.user
 *.suo
 *.log
+src/MarkUpViewMini.App.Package/*.assets.cache
+src/MarkUpViewMini.App.Package/*.slnx
 PROJECT_PROGRESS.*

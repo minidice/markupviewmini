@@ -11,7 +11,7 @@
       dotnet msbuild src/MarkUpViewMini.App -getProperty:MarkUpViewMiniMsixVersion
   -->
   <PropertyGroup>
-    <MarkUpViewMiniVersion>1.0.1</MarkUpViewMiniVersion>
+    <MarkUpViewMiniVersion>1.0.2</MarkUpViewMiniVersion>
     <MarkUpViewMiniMsixVersion>$(MarkUpViewMiniVersion).0</MarkUpViewMiniMsixVersion>
 
     <Version>$(MarkUpViewMiniVersion)</Version>

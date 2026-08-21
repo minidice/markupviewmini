@@ -183,15 +183,48 @@ describe("markdown preview", () => {
     expect(styleText).not.toContain("animation");
   });
 
-  it("gives fill-less edge-label background rects a fill and recenters them on their own height", async () => {
-    // Mermaid's SVG-text-mode edge labels (htmlLabels:false) ship the background rect that's
-    // meant to sit behind a "Y"/"N"-style link label with no fill anywhere — not stripped by
-    // this sanitizer, mermaid's own render output already omits it. An SVG rect with no fill
-    // defaults to solid black, so without this patch every edge label renders as an opaque box.
-    // Mermaid also positions this rect assuming alphabetic-baseline text metrics (e.g.
-    // y="-1" height="23", not centered on 0) — once the label text is re-centered on
-    // dominant-baseline below, that mismatch pokes the text out above the rect, so this
-    // recenters the rect on the same local origin instead.
+  it("keeps the theme sheet mermaid always wraps around an @keyframes block", async () => {
+    // Break caught: mermaid emits every diagram's theme as ONE stylesheet that opens with
+    // "@keyframes edge-animation-frame" (its animated-edge feature ships in the sheet whether or
+    // not the diagram animates anything). This sanitizer used to scan the raw sheet and bail on
+    // the first "@" it saw, which meant it threw away 100% of real theme CSS: every node, edge
+    // and label fell back to the SVG default fill and the preview rendered solid black boxes,
+    // while the same diagram looked right in the Mermaid editor, which doesn't sanitize.
+    // At-rules must be dropped rule-by-rule, never by discarding the sheet that contains them.
+    const container = document.createElement("div");
+    const mermaidAdapter = {
+      async render() {
+        return {
+          svg: [
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40">',
+            "<style>",
+            "@keyframes edge-animation-frame { from { stroke-dashoffset: 0; } }",
+            ".node rect { fill: rgb(236, 236, 255); stroke: rgb(147, 112, 219); }",
+            ".edgeLabel rect { fill: rgba(232, 232, 232, 0.8); }",
+            "</style>",
+            '<g class="node"><rect width="40" height="20"></rect></g>',
+            "</svg>",
+          ].join(""),
+        };
+      },
+    };
+
+    await renderPreview("~~~mermaid\nflowchart LR\nA --> B\n~~~", { container, mermaidAdapter });
+
+    const styleText = container.querySelector("style")?.textContent ?? "";
+    expect(styleText).toContain("fill: rgb(236, 236, 255)");
+    expect(styleText).toContain(".edgeLabel rect");
+    expect(styleText).not.toContain("@keyframes");
+    expect(styleText).not.toContain("stroke-dashoffset");
+  });
+
+  it("gives fill-less edge-label background rects a fill without moving them", async () => {
+    // Mermaid's SVG-text-mode edge labels (htmlLabels:false) ship the background rect behind a
+    // "Y"/"N"-style link label with no fill attribute; the fill comes from its theme sheet
+    // (".edgeLabel rect"). An SVG rect with no fill from either source defaults to solid black,
+    // so this backstops a theme that doesn't style it. The rect's y must be left exactly as
+    // mermaid emitted it (e.g. y="-1" for a 23-tall rect): the label's own text baseline is laid
+    // out against that value, so recentering the rect only pushes the text out of its pill.
     const container = document.createElement("div");
     const mermaidAdapter = {
       async render() {
@@ -209,7 +242,7 @@ describe("markdown preview", () => {
 
     const backgroundRect = container.querySelector("rect.background");
     expect(backgroundRect?.getAttribute("fill")).toBe("white");
-    expect(backgroundRect?.getAttribute("y")).toBe("-5");
+    expect(backgroundRect?.getAttribute("y")).toBe("0");
   });
 
   it("leaves an explicitly styled background rect's fill alone", async () => {
@@ -231,14 +264,12 @@ describe("markdown preview", () => {
     expect(container.querySelector("rect.background")?.getAttribute("fill")).toBe("red");
   });
 
-  it("centers word-wrapped label text that mermaid renders without a text-anchor", async () => {
-    // For a short, single-chunk label mermaid emits text-anchor="middle" on both the <text>
-    // and its wrapping "row" tspan, so the label straddles its x="0" anchor point. But once a
-    // label is long enough to word-wrap into multiple inner tspans, mermaid's SVG-text-mode
-    // renderer (htmlLabels:false) stops emitting text-anchor at all — confirmed in mermaid's
-    // own raw, unsanitized output, not something this sanitizer strips. Left un-anchored, SVG
-    // defaults to "start" (left-aligned), so the label still starts at the node's horizontal
-    // center but grows rightward past the shape's edge instead of being centered on it.
+  it("centers label text that reaches the page without a text-anchor", async () => {
+    // Mermaid centers labels on their x="0" anchor through its theme sheet
+    // (".node .label text { text-anchor: middle; }") rather than an attribute on every element.
+    // A label whose governing rule didn't survive sanitization would fall back to SVG's default
+    // "start" anchor: the text still begins at the node's horizontal center but grows rightward
+    // past the shape's edge. This attribute is the backstop for that case.
     const container = document.createElement("div");
     const mermaidAdapter = {
       async render() {
@@ -265,13 +296,13 @@ describe("markdown preview", () => {
     expect(rowTspan?.getAttribute("text-anchor")).toBe("middle");
   });
 
-  it("vertically centers label text on the font's central baseline instead of its alphabetic one", async () => {
-    // Mermaid positions a label's baseline at roughly the node's vertical center (e.g.
-    // y="-0.1em" on the row tspan), which only reads as centered if the rendering font's
-    // ascent and descent happen to be symmetric around that baseline. Most fonts' ascent is
-    // taller than their descent, so the glyphs drawn end up sitting mostly above the baseline —
-    // visibly shifting the label upward off-center. dominant-baseline="central" anchors to the
-    // font's own central metric instead, so this holds regardless of which font renders it.
+  it("leaves mermaid's own vertical label placement untouched", async () => {
+    // Break caught: this sanitizer used to force dominant-baseline="central" plus a measured
+    // dy nudge onto every label. Those numbers were calibrated while mermaid's theme sheet was
+    // being dropped wholesale (see the @keyframes case above), i.e. against a render with the
+    // wrong font and font-size entirely. With the sheet restored, mermaid's own y/dy values are
+    // already centered, and the extra nudge pushed every node label ~6px low and shoved edge
+    // labels clean out of their background pill. Vertical placement is mermaid's to decide.
     const container = document.createElement("div");
     const mermaidAdapter = {
       async render() {
@@ -280,7 +311,7 @@ describe("markdown preview", () => {
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 34">',
             '<g class="node">',
             '<rect x="-30" y="-17" width="60" height="34"></rect>',
-            '<text y="-10.1"><tspan class="row" x="0" y="-0.1em">시작</tspan></text>',
+            '<text y="-10.1"><tspan class="row" x="0" y="-0.1em" dy="1.1em">시작</tspan></text>',
             "</g>",
             "</svg>",
           ].join(""),
@@ -292,64 +323,12 @@ describe("markdown preview", () => {
 
     const text = container.querySelector("text");
     const rowTspan = container.querySelector('tspan[x="0"]');
-    expect(text?.getAttribute("dominant-baseline")).toBe("central");
-    expect(rowTspan?.getAttribute("dominant-baseline")).toBe("central");
-  });
-
-  it("nudges central-baseline text down to close the residual gap to the shape's true center", async () => {
-    // Break caught: even after anchoring to the central baseline, the rendered glyphs still sit
-    // measurably above a shape's geometric center for the fonts this renders with (measured in
-    // Chromium: ~0.83em regardless of shape size, for Korean + Latin fallback) - central-baseline
-    // centers on the font's central-baseline table, which isn't identical to the ink/line-box
-    // center for every font/script. Without this dy nudge every label reads slightly high.
-    const container = document.createElement("div");
-    const mermaidAdapter = {
-      async render() {
-        return {
-          svg: [
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 34">',
-            '<g class="node">',
-            '<rect x="-30" y="-17" width="60" height="34"></rect>',
-            '<text y="-10.1"><tspan class="row" x="0" y="-0.1em">시작</tspan></text>',
-            "</g>",
-            "</svg>",
-          ].join(""),
-        };
-      },
-    };
-
-    await renderPreview("~~~mermaid\nflowchart LR\nA --> B\n~~~", { container, mermaidAdapter });
-
-    const text = container.querySelector("text");
-    const rowTspan = container.querySelector('tspan[x="0"]');
-    expect(text?.getAttribute("dy")).toBe("0.83em");
-    expect(rowTspan?.getAttribute("dy")).toBe("0.83em");
-  });
-
-  it("does not override an existing dy when the label already carries dominant-baseline", async () => {
-    // The compensating nudge is only calibrated for the "central" baseline we force in; a
-    // label mermaid already annotates with its own baseline must be left untouched.
-    const container = document.createElement("div");
-    const mermaidAdapter = {
-      async render() {
-        return {
-          svg: [
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 34">',
-            '<g class="node">',
-            '<rect x="-30" y="-17" width="60" height="34"></rect>',
-            '<text dominant-baseline="middle" dy="0.2em" x="0">시작</text>',
-            "</g>",
-            "</svg>",
-          ].join(""),
-        };
-      },
-    };
-
-    await renderPreview("~~~mermaid\nflowchart LR\nA --> B\n~~~", { container, mermaidAdapter });
-
-    const text = container.querySelector("text");
-    expect(text?.getAttribute("dominant-baseline")).toBe("middle");
-    expect(text?.getAttribute("dy")).toBe("0.2em");
+    expect(text?.getAttribute("y")).toBe("-10.1");
+    expect(text?.hasAttribute("dy")).toBe(false);
+    expect(text?.hasAttribute("dominant-baseline")).toBe(false);
+    expect(rowTspan?.getAttribute("y")).toBe("-0.1em");
+    expect(rowTspan?.getAttribute("dy")).toBe("1.1em");
+    expect(rowTspan?.hasAttribute("dominant-baseline")).toBe(false);
   });
 
   it("never attaches renderer-controlled CSS to the live document head", async () => {

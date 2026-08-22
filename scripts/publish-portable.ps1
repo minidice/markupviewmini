@@ -109,7 +109,10 @@ try {
         '1',
         [EnvironmentVariableTarget]::Process)
     Assert-RepositoryBuildMutationPaths -RepositoryRoot $repositoryRoot
-    dotnet test .\MarkUpViewMini.slnx -c Release -m:1 -nr:false
+    # Msix_package_contains_the_document_surface_startup_assets asserts artifacts/msix/*.msix
+    # exists; that's publish-msix.ps1's own audit, not something a portable-only build produces.
+    dotnet test .\MarkUpViewMini.slnx -c Release -m:1 -nr:false `
+        --filter 'FullyQualifiedName!~Msix_package_contains_the_document_surface_startup_assets'
     if ($LASTEXITCODE -ne 0) { throw 'Release tests failed.' }
 
     Assert-RepositoryBuildMutationPaths -RepositoryRoot $repositoryRoot
@@ -225,7 +228,7 @@ try {
         'Release',
         '--no-restore',
         '--filter',
-        'FullyQualifiedName~OfflineAssetTests&FullyQualifiedName!~Published_surfaces_render_in_production_WebViews_without_network_and_route_external_clicks',
+        'FullyQualifiedName~OfflineAssetTests&FullyQualifiedName!~Published_surfaces_render_in_production_WebViews_without_network_and_route_external_clicks&FullyQualifiedName!~Msix_package_contains_the_document_surface_startup_assets',
         '-m:1',
         '-nr:false')
 
